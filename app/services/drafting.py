@@ -11,6 +11,7 @@ from app.services.atomization import select_atoms_for_content_type, group_atoms_
 from app.utils.retry import retry_async, claude_circuit_breaker
 from app.services import settings_manager
 from app.api.brand_voice import get_user_brand_context, format_brand_voice_for_prompt
+from app.api.memory import get_user_memory_rules, format_memory_rules_for_prompt
 
 settings = get_settings()
 
@@ -194,15 +195,20 @@ async def draft_linkedin_posts(
 
     prompt, config = await get_rendered_prompt("linkedin_draft", variables)
 
-    # Fetch and inject brand voice if user_id provided
+    # Fetch and inject brand voice and memory rules if user_id provided
     brand_voice_section = ""
+    memory_rules_section = ""
     if user_id:
         brand_context = await get_user_brand_context(user_id)
         if brand_context:
             brand_voice_section = format_brand_voice_for_prompt(brand_context, "linkedin")
 
+        memory_rules = await get_user_memory_rules(user_id)
+        if memory_rules:
+            memory_rules_section = format_memory_rules_for_prompt(memory_rules)
+
     # Add JSON output instruction
-    full_prompt = brand_voice_section + prompt + f"""
+    full_prompt = brand_voice_section + memory_rules_section + prompt + f"""
 
 Generate exactly {count} LinkedIn post variations.
 
@@ -279,14 +285,19 @@ async def draft_linkedin_quick(
         for a in atoms[:5]  # Use top 5 atoms max
     ])
 
-    # Fetch brand voice if available
+    # Fetch brand voice and memory rules if available
     brand_voice_section = ""
+    memory_rules_section = ""
     if user_id:
         brand_context = await get_user_brand_context(user_id)
         if brand_context:
             brand_voice_section = format_brand_voice_for_prompt(brand_context, "linkedin")
 
-    prompt = f"""{brand_voice_section}
+        memory_rules = await get_user_memory_rules(user_id)
+        if memory_rules:
+            memory_rules_section = format_memory_rules_for_prompt(memory_rules)
+
+    prompt = f"""{brand_voice_section}{memory_rules_section}
 Generate ONE compelling LinkedIn post using these content atoms.
 
 CONTENT ATOMS:
@@ -372,15 +383,20 @@ async def draft_blog_post(
 
     prompt, config = await get_rendered_prompt("blog_draft", variables)
 
-    # Fetch and inject brand voice if user_id provided
+    # Fetch and inject brand voice and memory rules if user_id provided
     brand_voice_section = ""
+    memory_rules_section = ""
     if user_id:
         brand_context = await get_user_brand_context(user_id)
         if brand_context:
             brand_voice_section = format_brand_voice_for_prompt(brand_context, "blog")
 
+        memory_rules = await get_user_memory_rules(user_id)
+        if memory_rules:
+            memory_rules_section = format_memory_rules_for_prompt(memory_rules)
+
     # Add JSON output instruction
-    full_prompt = brand_voice_section + prompt + """
+    full_prompt = brand_voice_section + memory_rules_section + prompt + """
 
 OUTPUT FORMAT (valid JSON):
 {
@@ -468,15 +484,20 @@ async def draft_email(
 
     prompt, config = await get_rendered_prompt("email_draft", variables)
 
-    # Fetch and inject brand voice if user_id provided
+    # Fetch and inject brand voice and memory rules if user_id provided
     brand_voice_section = ""
+    memory_rules_section = ""
     if user_id:
         brand_context = await get_user_brand_context(user_id)
         if brand_context:
             brand_voice_section = format_brand_voice_for_prompt(brand_context, "email")
 
+        memory_rules = await get_user_memory_rules(user_id)
+        if memory_rules:
+            memory_rules_section = format_memory_rules_for_prompt(memory_rules)
+
     # Add output instruction
-    full_prompt = brand_voice_section + prompt + """
+    full_prompt = brand_voice_section + memory_rules_section + prompt + """
 
 OUTPUT FORMAT (valid JSON):
 {

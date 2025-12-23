@@ -31,21 +31,78 @@
 
         <!-- Tabs -->
         <div class="mb-6 border-b">
-            <div class="flex space-x-8">
-                <a href="/brand-voice.html" class="tab-btn px-1 pb-4 border-b-2 border-transparent text-gray-500 hover:text-gray-700">
-                    Brand Voice Configuration
+            <div class="flex space-x-8 overflow-x-auto">
+                <a href="/brand-voice.html" class="tab-btn px-1 pb-4 border-b-2 border-transparent text-gray-500 hover:text-gray-700 whitespace-nowrap">
+                    Brand Voice
                 </a>
-                <button class="tab-btn px-1 pb-4 border-b-2 border-indigo-600 text-indigo-600 font-medium" data-tab="voice-test">
-                    Brand Voice Testing
+                <button class="tab-btn px-1 pb-4 border-b-2 border-indigo-600 text-indigo-600 font-medium whitespace-nowrap" data-tab="memory">
+                    Memory Rules
                 </button>
-                <button class="tab-btn px-1 pb-4 border-b-2 border-transparent text-gray-500 hover:text-gray-700" data-tab="personas">
+                <button class="tab-btn px-1 pb-4 border-b-2 border-transparent text-gray-500 hover:text-gray-700 whitespace-nowrap" data-tab="voice-test">
+                    Voice Testing
+                </button>
+                <button class="tab-btn px-1 pb-4 border-b-2 border-transparent text-gray-500 hover:text-gray-700 whitespace-nowrap" data-tab="personas">
                     Personas
                 </button>
             </div>
         </div>
 
+        <!-- Memory Rules Tab -->
+        <div id="memory-tab" class="space-y-6">
+            <div class="bg-white rounded-lg shadow-sm p-6">
+                <h2 class="text-xl font-semibold mb-2">Memory Rules</h2>
+                <p class="text-gray-600 mb-6">
+                    Teach the AI your preferences. These rules apply to all future content generation.
+                </p>
+
+                <!-- Add Rule Form -->
+                <div class="bg-gray-50 rounded-lg p-4 mb-6">
+                    <div class="flex flex-wrap gap-4 items-end">
+                        <div class="flex-shrink-0">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Rule Type</label>
+                            <select id="new-rule-type"
+                                class="border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+                                <option value="never">Never</option>
+                                <option value="always">Always</option>
+                            </select>
+                        </div>
+                        <div class="flex-grow min-w-[200px]">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Rule Content</label>
+                            <input type="text" id="new-rule-content"
+                                class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                                placeholder="e.g., use rhetorical questions">
+                        </div>
+                        <button onclick="addMemoryRule()"
+                            class="bg-indigo-600 text-white px-6 py-2 rounded-lg font-semibold hover:bg-indigo-700 transition">
+                            Add Rule
+                        </button>
+                    </div>
+                    <p class="text-sm text-gray-500 mt-2">
+                        <strong>Never:</strong> Things to avoid (e.g., "use rhetorical questions", "mention competitor names")<br>
+                        <strong>Always:</strong> Things to include (e.g., "mention our company name", "include a CTA")
+                    </p>
+                </div>
+
+                <!-- Rules List -->
+                <div id="rules-list" class="space-y-4">
+                    <p class="text-gray-500 text-center py-4">Loading rules...</p>
+                </div>
+
+                <!-- Example Rules -->
+                <div class="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                    <p class="text-sm font-medium text-blue-800 mb-2">Example Rules:</p>
+                    <ul class="text-sm text-blue-700 space-y-1">
+                        <li>❌ Never use rhetorical questions</li>
+                        <li>❌ Never use the word "revolutionary"</li>
+                        <li>✓ Always mention SafelyYou by name</li>
+                        <li>✓ Always include a clear call-to-action</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
         <!-- Brand Voice Testing Tab -->
-        <div id="voice-test-tab" class="space-y-6">
+        <div id="voice-test-tab" class="hidden space-y-6">
             <div class="bg-white rounded-lg shadow-sm p-6">
                 <h2 class="text-xl font-semibold mb-4">Test Brand Voice Transformation</h2>
                 <p class="text-gray-600 mb-6">
@@ -173,10 +230,157 @@
                 btn.classList.remove('border-transparent', 'text-gray-500');
                 btn.classList.add('border-indigo-600', 'text-indigo-600');
 
+                document.getElementById('memory-tab').classList.toggle('hidden', tab !== 'memory');
                 document.getElementById('voice-test-tab').classList.toggle('hidden', tab !== 'voice-test');
                 document.getElementById('personas-tab').classList.toggle('hidden', tab !== 'personas');
             });
         });
+
+        // Memory Rules Functions
+        async function loadMemoryRules() {
+            try {
+                const response = await Auth.fetchWithAuth('/api/memory/rules');
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.detail || 'Failed to load rules');
+                }
+
+                renderMemoryRules(data.rules || []);
+
+            } catch (err) {
+                console.error('Failed to load memory rules:', err);
+                document.getElementById('rules-list').innerHTML =
+                    `<p class="text-red-500 text-center py-4">Failed to load rules: ${err.message}</p>`;
+            }
+        }
+
+        function renderMemoryRules(rules) {
+            const container = document.getElementById('rules-list');
+
+            if (rules.length === 0) {
+                container.innerHTML = `
+                    <div class="text-center py-8 text-gray-500">
+                        <p class="text-lg mb-2">No memory rules yet</p>
+                        <p class="text-sm">Add rules above to customize how AI generates your content.</p>
+                    </div>
+                `;
+                return;
+            }
+
+            // Group by type
+            const neverRules = rules.filter(r => r.rule_type === 'never');
+            const alwaysRules = rules.filter(r => r.rule_type === 'always');
+
+            let html = '';
+
+            if (neverRules.length > 0) {
+                html += `<div class="mb-4"><h3 class="text-sm font-semibold text-red-700 mb-2">NEVER DO:</h3><div class="space-y-2">`;
+                neverRules.forEach(rule => {
+                    html += `
+                        <div class="flex items-center justify-between bg-red-50 border border-red-200 rounded-lg px-4 py-2">
+                            <div class="flex items-center gap-2">
+                                <span class="text-red-500 font-bold">❌</span>
+                                <span class="text-gray-800">${escapeHtml(rule.rule_content)}</span>
+                            </div>
+                            <button onclick="deleteMemoryRule(${rule.id})"
+                                class="text-red-500 hover:text-red-700 p-1">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                                </svg>
+                            </button>
+                        </div>
+                    `;
+                });
+                html += `</div></div>`;
+            }
+
+            if (alwaysRules.length > 0) {
+                html += `<div><h3 class="text-sm font-semibold text-green-700 mb-2">ALWAYS DO:</h3><div class="space-y-2">`;
+                alwaysRules.forEach(rule => {
+                    html += `
+                        <div class="flex items-center justify-between bg-green-50 border border-green-200 rounded-lg px-4 py-2">
+                            <div class="flex items-center gap-2">
+                                <span class="text-green-500 font-bold">✓</span>
+                                <span class="text-gray-800">${escapeHtml(rule.rule_content)}</span>
+                            </div>
+                            <button onclick="deleteMemoryRule(${rule.id})"
+                                class="text-red-500 hover:text-red-700 p-1">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                                </svg>
+                            </button>
+                        </div>
+                    `;
+                });
+                html += `</div></div>`;
+            }
+
+            container.innerHTML = html;
+        }
+
+        async function addMemoryRule() {
+            const ruleType = document.getElementById('new-rule-type').value;
+            const ruleContent = document.getElementById('new-rule-content').value.trim();
+
+            if (!ruleContent) {
+                alert('Please enter a rule');
+                return;
+            }
+
+            try {
+                const response = await Auth.fetchWithAuth('/api/memory/rules', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        rule_type: ruleType,
+                        rule_content: ruleContent
+                    })
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.detail || 'Failed to add rule');
+                }
+
+                // Clear input
+                document.getElementById('new-rule-content').value = '';
+
+                // Reload rules
+                await loadMemoryRules();
+
+            } catch (err) {
+                alert('Failed to add rule: ' + err.message);
+            }
+        }
+
+        async function deleteMemoryRule(ruleId) {
+            if (!confirm('Delete this rule?')) return;
+
+            try {
+                const response = await Auth.fetchWithAuth(`/api/memory/rules/${ruleId}`, {
+                    method: 'DELETE'
+                });
+
+                if (!response.ok) {
+                    const data = await response.json();
+                    throw new Error(data.detail || 'Failed to delete rule');
+                }
+
+                // Reload rules
+                await loadMemoryRules();
+
+            } catch (err) {
+                alert('Failed to delete rule: ' + err.message);
+            }
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
 
         async function loadPersonas() {
             try {
@@ -374,8 +578,9 @@
             }
         }
 
-        // Load personas on page load
+        // Load data on page load
         loadPersonas();
+        loadMemoryRules();
     </script>
 </body>
 </html>

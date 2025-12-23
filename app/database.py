@@ -169,6 +169,17 @@ async def init_db():
                 FOREIGN KEY (user_id) REFERENCES users(id)
             );
             CREATE INDEX IF NOT EXISTS idx_brand_contexts_user_id ON brand_contexts(user_id);
+
+            -- Memory rules for persistent user preferences
+            CREATE TABLE IF NOT EXISTS memory_rules (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL,
+                rule_type TEXT NOT NULL,
+                rule_content TEXT NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (user_id) REFERENCES users(id)
+            );
+            CREATE INDEX IF NOT EXISTS idx_memory_rules_user_id ON memory_rules(user_id);
         """)
 
         await db.commit()
