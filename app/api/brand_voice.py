@@ -375,3 +375,278 @@ def format_brand_voice_for_prompt(brand_context: dict, content_type: str) -> str
     ])
 
     return "\n".join(sections)
+
+
+# ============================================================================
+# AI Brand Voice Analysis Endpoints
+# ============================================================================
+
+class BrandVoiceAnalyzeRequest(BaseModel):
+    samples: list[str]
+    content_types: list[str]
+
+
+class BrandVoiceAnalyzeAndSaveRequest(BaseModel):
+    samples: list[str]
+    content_types: list[str]
+    company_name: str
+    industry: str = ""
+    mission_statement: str = ""
+
+
+@router.post("/brand-voice/analyze")
+async def analyze_brand_voice(
+    request: BrandVoiceAnalyzeRequest,
+    user_id: int = Depends(get_current_user_id),
+):
+    """
+    Analyze sample content to extract brand voice patterns.
+
+    Provide 3-20 content samples (LinkedIn posts, blog snippets, emails)
+    and the AI will extract tone, vocabulary, structural patterns, and more.
+
+    Returns extracted patterns for review before saving.
+    """
+    from app.services.brand_voice_analyzer import extract_brand_voice_patterns
+
+    # Validate inputs
+    if len(request.samples) < 3:
+        raise HTTPException(
+            status_code=400,
+            detail="Please provide at least 3 samples for accurate analysis"
+        )
+
+    if len(request.samples) > 20:
+        raise HTTPException(
+            status_code=400,
+            detail="Maximum 20 samples allowed"
+        )
+
+    if len(request.samples) != len(request.content_types):
+        raise HTTPException(
+            status_code=400,
+            detail="Number of samples must match number of content_types"
+        )
+
+    # Validate content types
+    valid_types = {"linkedin", "blog", "email"}
+    for ct in request.content_types:
+        if ct.lower() not in valid_types:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid content type: {ct}. Must be one of: {valid_types}"
+            )
+
+    # Filter out empty samples
+    valid_samples = []
+    valid_types_list = []
+    for sample, ct in zip(request.samples, request.content_types):
+        if sample.strip():
+            valid_samples.append(sample.strip())
+            valid_types_list.append(ct.lower())
+
+    if len(valid_samples) < 3:
+        raise HTTPException(
+            status_code=400,
+            detail="At least 3 non-empty samples required"
+        )
+
+    # Perform analysis
+    analysis = await extract_brand_voice_patterns(valid_samples, valid_types_list)
+
+    if "error" in analysis:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Analysis failed: {analysis.get('error')}"
+        )
+
+    return {
+        "success": True,
+        "extracted_voice": analysis,
+        "sample_count": len(valid_samples),
+        "content_types_analyzed": list(set(valid_types_list)),
+        "message": "Review the extracted patterns and edit before saving"
+    }
+
+
+@router.post("/brand-voice/analyze-and-save")
+async def analyze_and_save_brand_voice(
+    request: BrandVoiceAnalyzeAndSaveRequest,
+    user_id: int = Depends(get_current_user_id),
+):
+    """
+    Analyze samples and save the extracted brand voice configuration.
+
+    This is a convenience endpoint that combines analysis + save in one call.
+    For more control, use /analyze first, review/edit, then /brand-voice to save.
+    """
+    from app.services.brand_voice_analyzer import (
+        extract_brand_voice_patterns,
+        convert_analysis_to_brand_voice,
+    )
+
+    # Validate inputs
+    if len(request.samples) < 3:
+        raise HTTPException(
+            status_code=400,
+            detail="Please provide at least 3 samples for accurate analysis"
+        )
+
+    if len(request.samples) != len(request.content_types):
+        raise HTTPException(
+            status_code=400,
+            detail="Number of samples must match number of content_types"
+        )
+
+    # Filter valid samples
+    valid_samples = []
+    valid_types_list = []
+    for sample, ct in zip(request.samples, request.content_types):
+        if sample.strip():
+            valid_samples.append(sample.strip())
+            valid_types_list.append(ct.lower())
+
+    if len(valid_samples) < 3:
+        raise HTTPException(
+            status_code=400,
+            detail="At least 3 non-empty samples required"
+        )
+
+    # Perform analysis
+    analysis = await extract_brand_voice_patterns(valid_samples, valid_types_list)
+
+    if "error" in analysis:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Analysis failed: {analysis.get('error')}"
+        )
+
+    # Convert to brand voice format
+    brand_voice_data = convert_analysis_to_brand_voice(analysis)
+
+    # Save to database
+    async with get_db() as db:
+        cursor = await db.execute(
+            "SELECT id FROM brand_contexts WHERE user_id = ?",
+            (user_id,)
+        )
+        existing = await cursor.fetchone()
+
+        if existing:
+            await db.execute(
+                """
+                UPDATE brand_contexts SET
+                    company_name = ?,
+                    industry = ?,
+                    brand_voice_json = ?,
+                    mission_statement = ?,
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE user_id = ?
+                """,
+                (
+                    request.company_name,
+                    request.industry,
+                    json.dumps(brand_voice_data),
+                    request.mission_statement,
+                    user_id,
+                )
+            )
+        else:
+            await db.execute(
+                """
+                INSERT INTO brand_contexts (
+                    user_id, company_name, industry, brand_voice_json, mission_statement
+                ) VALUES (?, ?, ?, ?, ?)
+                """,
+                (
+                    user_id,
+                    request.company_name,
+                    request.industry,
+                    json.dumps(brand_voice_data),
+                    request.mission_statement,
+                )
+            )
+
+        await db.commit()
+
+    return {
+        "success": True,
+        "message": "Brand voice analyzed and saved successfully",
+        "extracted_voice": analysis,
+        "sample_count": len(valid_samples),
+    }
+
+
+@router.post("/brand-voice/save-extracted")
+async def save_extracted_brand_voice(
+    extracted_voice: dict,
+    company_name: str,
+    industry: str = "",
+    mission_statement: str = "",
+    user_id: int = Depends(get_current_user_id),
+):
+    """
+    Save previously extracted brand voice patterns.
+
+    Use this after calling /analyze and reviewing/editing the results.
+    """
+    from app.services.brand_voice_analyzer import convert_analysis_to_brand_voice
+
+    # Convert to brand voice format
+    brand_voice_data = convert_analysis_to_brand_voice(extracted_voice)
+
+    if not brand_voice_data:
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid extracted voice data"
+        )
+
+    # Save to database
+    async with get_db() as db:
+        cursor = await db.execute(
+            "SELECT id FROM brand_contexts WHERE user_id = ?",
+            (user_id,)
+        )
+        existing = await cursor.fetchone()
+
+        if existing:
+            await db.execute(
+                """
+                UPDATE brand_contexts SET
+                    company_name = ?,
+                    industry = ?,
+                    brand_voice_json = ?,
+                    mission_statement = ?,
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE user_id = ?
+                """,
+                (
+                    company_name,
+                    industry,
+                    json.dumps(brand_voice_data),
+                    mission_statement,
+                    user_id,
+                )
+            )
+        else:
+            await db.execute(
+                """
+                INSERT INTO brand_contexts (
+                    user_id, company_name, industry, brand_voice_json, mission_statement
+                ) VALUES (?, ?, ?, ?, ?)
+                """,
+                (
+                    user_id,
+                    company_name,
+                    industry,
+                    json.dumps(brand_voice_data),
+                    mission_statement,
+                )
+            )
+
+        await db.commit()
+
+    return {
+        "success": True,
+        "message": "Extracted brand voice saved successfully",
+    }

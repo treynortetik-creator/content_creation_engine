@@ -47,6 +47,9 @@
                 <button class="tab-btn px-1 pb-4 border-b-2 border-transparent text-gray-500 hover:text-gray-700 whitespace-nowrap" data-tab="integrations">
                     Integrations
                 </button>
+                <button class="tab-btn px-1 pb-4 border-b-2 border-transparent text-gray-500 hover:text-gray-700 whitespace-nowrap" data-tab="ai-models">
+                    AI Models
+                </button>
             </div>
         </div>
 
@@ -396,6 +399,48 @@
         </div>
     </div>
 
+    <!-- AI Models Tab -->
+    <div id="ai-models-tab" class="hidden space-y-6">
+        <div class="bg-white rounded-lg shadow-sm p-6">
+            <h2 class="text-xl font-semibold mb-2">AI Model Configuration</h2>
+            <p class="text-gray-600 mb-6">
+                Configure which AI model to use for each task. Premium models produce higher quality but cost more.
+            </p>
+
+            <div id="model-configs-loading" class="text-center py-4">
+                <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600 mx-auto"></div>
+                <p class="text-gray-500 mt-2">Loading model configurations...</p>
+            </div>
+
+            <div id="model-configs-container" class="hidden">
+                <table class="w-full">
+                    <thead>
+                        <tr class="border-b">
+                            <th class="text-left py-3 px-2 font-medium text-gray-700">Task</th>
+                            <th class="text-left py-3 px-2 font-medium text-gray-700">Current Model</th>
+                            <th class="text-left py-3 px-2 font-medium text-gray-700">Tier</th>
+                        </tr>
+                    </thead>
+                    <tbody id="model-configs-body">
+                        <!-- Populated by JS -->
+                    </tbody>
+                </table>
+
+                <div class="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                    <p class="text-sm font-medium text-blue-800 mb-2">Model Tiers:</p>
+                    <ul class="text-sm text-blue-700 space-y-1">
+                        <li><span class="inline-block w-16 font-medium">Fast:</span> Lower cost, faster response. Good for high-volume tasks.</li>
+                        <li><span class="inline-block w-16 font-medium">Premium:</span> Higher quality, best for content that matters.</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div id="model-configs-error" class="hidden text-center py-4 text-red-500">
+                Failed to load model configurations.
+            </div>
+        </div>
+    </div>
+
     <!-- Copy Toast -->
     <div id="copy-toast" class="fixed bottom-4 right-4 bg-gray-800 text-white px-4 py-2 rounded-lg shadow-lg hidden">
         Copied to clipboard!
@@ -426,6 +471,12 @@
                 document.getElementById('voice-test-tab').classList.toggle('hidden', tab !== 'voice-test');
                 document.getElementById('personas-tab').classList.toggle('hidden', tab !== 'personas');
                 document.getElementById('integrations-tab').classList.toggle('hidden', tab !== 'integrations');
+                document.getElementById('ai-models-tab').classList.toggle('hidden', tab !== 'ai-models');
+
+                // Load AI model configs when tab is opened
+                if (tab === 'ai-models') {
+                    loadAIModelConfigs();
+                }
             });
         });
 
@@ -1141,6 +1192,126 @@
             } catch (err) {
                 console.error('Failed to load templates:', err);
             }
+        }
+
+        // ============================================
+        // AI Model Configuration Functions
+        // ============================================
+
+        let availableModels = [];
+        let modelConfigsLoaded = false;
+
+        async function loadAIModelConfigs() {
+            if (modelConfigsLoaded) return;
+
+            const loading = document.getElementById('model-configs-loading');
+            const container = document.getElementById('model-configs-container');
+            const error = document.getElementById('model-configs-error');
+
+            try {
+                const response = await Auth.fetchWithAuth('/api/admin/ai-models');
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.detail || 'Failed to load model configs');
+                }
+
+                availableModels = data.available_models || [];
+                renderModelConfigs(data.configs || []);
+                modelConfigsLoaded = true;
+
+                loading.classList.add('hidden');
+                container.classList.remove('hidden');
+
+            } catch (err) {
+                console.error('Failed to load AI model configs:', err);
+                loading.classList.add('hidden');
+                error.classList.remove('hidden');
+                error.textContent = 'Failed to load model configurations: ' + err.message;
+            }
+        }
+
+        function renderModelConfigs(configs) {
+            const tbody = document.getElementById('model-configs-body');
+
+            const taskLabels = {
+                'transcription': 'Transcription',
+                'atomization': 'Content Atomization',
+                'drafting': 'Content Drafting',
+                'editing': 'Editing & Refinement',
+                'fact_checking': 'Fact Checking',
+                'scoring': 'Quality Scoring',
+                'brand_voice_analysis': 'Brand Voice Analysis',
+                'hook_generation': 'Hook Generation',
+                'swipe_analysis': 'Swipe File Analysis'
+            };
+
+            tbody.innerHTML = configs.map(config => {
+                const modelOptions = availableModels.map(m =>
+                    `<option value="${m.id}" ${m.id === config.model_id ? 'selected' : ''}>${m.name}</option>`
+                ).join('');
+
+                const currentModel = availableModels.find(m => m.id === config.model_id);
+                const tier = currentModel ? currentModel.tier : 'unknown';
+                const tierClass = tier === 'premium' ? 'text-purple-600 bg-purple-100' : 'text-green-600 bg-green-100';
+
+                return `
+                    <tr class="border-b hover:bg-gray-50">
+                        <td class="py-3 px-2">
+                            <div class="font-medium">${taskLabels[config.task_name] || config.task_name}</div>
+                            <div class="text-xs text-gray-500">${config.description || ''}</div>
+                        </td>
+                        <td class="py-3 px-2">
+                            <select onchange="updateModelConfig('${config.task_name}', this.value)"
+                                class="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 w-full max-w-xs">
+                                ${modelOptions}
+                            </select>
+                        </td>
+                        <td class="py-3 px-2">
+                            <span class="inline-block px-2 py-1 rounded text-xs font-medium ${tierClass}" id="tier-${config.task_name}">
+                                ${tier}
+                            </span>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        async function updateModelConfig(taskName, modelId) {
+            try {
+                const response = await Auth.fetchWithAuth(`/api/admin/ai-models/${taskName}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ model_id: modelId })
+                });
+
+                if (!response.ok) {
+                    const data = await response.json();
+                    throw new Error(data.detail || 'Failed to update');
+                }
+
+                // Update tier badge
+                const model = availableModels.find(m => m.id === modelId);
+                const tierBadge = document.getElementById(`tier-${taskName}`);
+                if (tierBadge && model) {
+                    const tierClass = model.tier === 'premium' ? 'text-purple-600 bg-purple-100' : 'text-green-600 bg-green-100';
+                    tierBadge.className = `inline-block px-2 py-1 rounded text-xs font-medium ${tierClass}`;
+                    tierBadge.textContent = model.tier;
+                }
+
+                // Show brief success indicator
+                showToast('Model updated successfully');
+
+            } catch (err) {
+                alert('Failed to update model: ' + err.message);
+            }
+        }
+
+        function showToast(message) {
+            const toast = document.getElementById('copy-toast');
+            toast.textContent = message;
+            toast.classList.remove('hidden');
+            setTimeout(() => toast.classList.add('hidden'), 2000);
         }
 
         // Load data on page load

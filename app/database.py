@@ -276,6 +276,15 @@ async def init_db():
                 UNIQUE(user_id, persona_id)
             );
             CREATE INDEX IF NOT EXISTS idx_custom_personas_user_id ON custom_personas(user_id);
+
+            -- AI model configuration per task
+            CREATE TABLE IF NOT EXISTS ai_model_config (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                task_name TEXT NOT NULL UNIQUE,
+                model_id TEXT NOT NULL,
+                description TEXT,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
         """)
 
         await db.commit()
@@ -310,6 +319,27 @@ async def init_db():
             await db.execute("SELECT batch_id FROM jobs LIMIT 1")
         except aiosqlite.OperationalError:
             await db.execute("ALTER TABLE jobs ADD COLUMN batch_id TEXT")
+            await db.commit()
+
+        # Migration: Seed default AI model configurations
+        cursor = await db.execute("SELECT COUNT(*) FROM ai_model_config")
+        count = (await cursor.fetchone())[0]
+        if count == 0:
+            default_models = [
+                ('transcription', 'google/gemini-flash-1.5', 'Audio/video transcription'),
+                ('atomization', 'google/gemini-flash-1.5', 'Content atom extraction'),
+                ('drafting', 'anthropic/claude-sonnet-4', 'Content drafting - quality matters'),
+                ('editing', 'google/gemini-flash-1.5', 'Content editing and refinement'),
+                ('fact_checking', 'google/gemini-flash-1.5', 'Fact verification'),
+                ('scoring', 'google/gemini-flash-1.5', 'Quality scoring'),
+                ('brand_voice_analysis', 'anthropic/claude-sonnet-4', 'Brand voice extraction from samples'),
+                ('hook_generation', 'anthropic/claude-sonnet-4', 'Hook variation generation'),
+                ('swipe_analysis', 'google/gemini-flash-1.5', 'Swipe file pattern extraction'),
+            ]
+            await db.executemany(
+                "INSERT INTO ai_model_config (task_name, model_id, description) VALUES (?, ?, ?)",
+                default_models
+            )
             await db.commit()
 
         # Create default user if not exists

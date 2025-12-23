@@ -558,3 +558,73 @@ async def get_openrouter_models():
             status_code=500,
             detail=f"Failed to connect to OpenRouter: {str(e)}"
         )
+
+
+# ============================================================================
+# AI Model Configuration (Database-backed)
+# ============================================================================
+
+class TaskModelUpdate(BaseModel):
+    model_id: str
+
+
+@router.get("/ai-models")
+async def get_ai_model_configs():
+    """
+    Get all AI model configurations from database.
+    Returns task-level model assignments.
+    """
+    from app.services.openrouter import get_all_model_configs, get_available_models
+
+    configs = await get_all_model_configs()
+    available = get_available_models()
+
+    return {
+        "configs": configs,
+        "available_models": available,
+    }
+
+
+@router.put("/ai-models/{task_name}")
+async def update_ai_model_config(task_name: str, update: TaskModelUpdate):
+    """
+    Update the model for a specific AI task.
+
+    Valid task names:
+    - transcription, atomization, drafting, editing, fact_checking, scoring
+    - brand_voice_analysis, hook_generation, swipe_analysis
+    """
+    from app.services.openrouter import update_model_config, get_available_models
+
+    # Validate model exists
+    available_ids = [m["id"] for m in get_available_models()]
+    if update.model_id not in available_ids:
+        # Allow any model ID (user might use one not in our curated list)
+        pass
+
+    success = await update_model_config(task_name, update.model_id)
+
+    if not success:
+        raise HTTPException(status_code=500, detail="Failed to update model config")
+
+    return {
+        "success": True,
+        "task_name": task_name,
+        "model_id": update.model_id,
+    }
+
+
+@router.get("/ai-models/available")
+async def get_available_ai_models():
+    """
+    Get list of available AI models for selection.
+    Returns curated list plus option to fetch from OpenRouter.
+    """
+    from app.services.openrouter import get_available_models, get_model_tier
+
+    models = get_available_models()
+
+    return {
+        "models": models,
+        "note": "Use /api/admin/openrouter-models to fetch full list from OpenRouter API"
+    }
