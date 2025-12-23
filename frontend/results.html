@@ -75,6 +75,28 @@
             font-size: 12px;
             color: #666;
         }
+
+        /* Email Sequence Styles */
+        .email-header-green { background: linear-gradient(to right, #dcfce7, white); }
+        .email-header-blue { background: linear-gradient(to right, #dbeafe, white); }
+        .email-header-purple { background: linear-gradient(to right, #f3e8ff, white); }
+        .email-header-orange { background: linear-gradient(to right, #ffedd5, white); }
+        .email-header-teal { background: linear-gradient(to right, #ccfbf1, white); }
+        .email-header-gray { background: linear-gradient(to right, #f3f4f6, white); }
+
+        .email-badge-green { background-color: #dcfce7; color: #15803d; }
+        .email-badge-blue { background-color: #dbeafe; color: #1d4ed8; }
+        .email-badge-purple { background-color: #f3e8ff; color: #7c3aed; }
+        .email-badge-orange { background-color: #ffedd5; color: #c2410c; }
+        .email-badge-teal { background-color: #ccfbf1; color: #0d9488; }
+        .email-badge-gray { background-color: #f3f4f6; color: #4b5563; }
+
+        .email-number-green { background-color: #dcfce7; color: #15803d; }
+        .email-number-blue { background-color: #dbeafe; color: #1d4ed8; }
+        .email-number-purple { background-color: #f3e8ff; color: #7c3aed; }
+        .email-number-orange { background-color: #ffedd5; color: #c2410c; }
+        .email-number-teal { background-color: #ccfbf1; color: #0d9488; }
+        .email-number-gray { background-color: #f3f4f6; color: #4b5563; }
     </style>
 </head>
 <body class="bg-gray-50 min-h-screen">
@@ -101,7 +123,33 @@
                 <h1 class="text-3xl font-bold" id="job-title">Results</h1>
                 <p class="text-gray-600 mt-1" id="job-meta">Loading...</p>
             </div>
-            <div class="flex gap-4">
+            <div class="flex gap-4 items-center">
+                <!-- Export Dropdown -->
+                <div class="relative" id="export-dropdown">
+                    <button onclick="toggleExportMenu()" class="flex items-center gap-2 text-gray-600 hover:text-gray-900 px-3 py-2 border rounded-lg">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+                        </svg>
+                        Export
+                    </button>
+                    <div id="export-menu" class="hidden absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border z-10">
+                        <div class="py-2">
+                            <button onclick="exportAs('markdown')" class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                                Download Markdown (.md)
+                            </button>
+                            <button onclick="exportAs('json')" class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                                Download JSON (.json)
+                            </button>
+                            <button onclick="exportAs('docx')" class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                                Download Word (.docx)
+                            </button>
+                            <div class="border-t my-1"></div>
+                            <button onclick="exportAs('zip')" class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 font-medium">
+                                Download All (.zip)
+                            </button>
+                        </div>
+                    </div>
+                </div>
                 <a href="/library.html" class="text-indigo-600 hover:underline">View in Library</a>
                 <a href="/upload.html" class="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition">
                     New Upload
@@ -171,6 +219,58 @@
             window.location.href = '/upload.html';
         }
 
+        // Export functions
+        function toggleExportMenu() {
+            const menu = document.getElementById('export-menu');
+            menu.classList.toggle('hidden');
+        }
+
+        // Close dropdown when clicking outside
+        document.addEventListener('click', (e) => {
+            const dropdown = document.getElementById('export-dropdown');
+            const menu = document.getElementById('export-menu');
+            if (dropdown && !dropdown.contains(e.target)) {
+                menu.classList.add('hidden');
+            }
+        });
+
+        async function exportAs(format) {
+            try {
+                const url = `/api/export/${jobId}/${format}`;
+                const response = await Auth.fetchWithAuth(url);
+
+                if (!response.ok) {
+                    const data = await response.json();
+                    throw new Error(data.detail || 'Export failed');
+                }
+
+                // Get filename from Content-Disposition header
+                const disposition = response.headers.get('Content-Disposition');
+                let filename = `content.${format}`;
+                if (disposition) {
+                    const match = disposition.match(/filename="(.+)"/);
+                    if (match) filename = match[1];
+                }
+
+                // Download the file
+                const blob = await response.blob();
+                const downloadUrl = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = downloadUrl;
+                a.download = filename;
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(downloadUrl);
+                a.remove();
+
+                showToast(`Downloaded ${filename}`);
+                document.getElementById('export-menu').classList.add('hidden');
+            } catch (err) {
+                console.error('Export error:', err);
+                alert('Export failed: ' + err.message);
+            }
+        }
+
         let currentTab = 'outputs';
         let allAtoms = [];
 
@@ -216,6 +316,125 @@
             const toast = document.getElementById('copy-toast');
             toast.classList.remove('hidden');
             setTimeout(() => toast.classList.add('hidden'), 2000);
+        }
+
+        async function saveToSwipeFile(outputId, contentType, content, sourceTitle) {
+            try {
+                const response = await Auth.fetchWithAuth('/api/swipe', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        output_id: outputId,
+                        content_type: contentType,
+                        content: content,
+                        source_title: sourceTitle || document.getElementById('job-title').textContent,
+                    })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    const toast = document.getElementById('copy-toast');
+                    toast.textContent = `Saved to swipe file! (${data.patterns_found} patterns learned)`;
+                    toast.classList.remove('hidden');
+                    setTimeout(() => {
+                        toast.classList.add('hidden');
+                        toast.textContent = 'Copied to clipboard!';
+                    }, 3000);
+                } else {
+                    alert('Failed to save: ' + (data.detail || 'Unknown error'));
+                }
+            } catch (err) {
+                console.error('Failed to save to swipe file:', err);
+                alert('Failed to save to swipe file');
+            }
+        }
+
+        // Feedback state tracking
+        const feedbackState = {};
+
+        async function submitFeedback(outputId, feedbackType) {
+            try {
+                const currentFeedback = feedbackState[outputId];
+
+                // If clicking same button, remove feedback
+                if (currentFeedback === feedbackType) {
+                    await Auth.fetchWithAuth(`/api/feedback/${outputId}`, { method: 'DELETE' });
+                    feedbackState[outputId] = null;
+                    updateFeedbackUI(outputId, null);
+                    showToast('Feedback removed');
+                    return;
+                }
+
+                // Submit new feedback
+                const response = await Auth.fetchWithAuth('/api/feedback', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        output_id: outputId,
+                        feedback_type: feedbackType,
+                    })
+                });
+
+                if (response.ok) {
+                    feedbackState[outputId] = feedbackType;
+                    updateFeedbackUI(outputId, feedbackType);
+                    showToast(feedbackType === 'up' ? 'Thanks for the feedback!' : 'We\'ll do better next time');
+                }
+            } catch (err) {
+                console.error('Feedback error:', err);
+            }
+        }
+
+        function updateFeedbackUI(outputId, feedbackType) {
+            const upBtn = document.getElementById(`feedback-up-${outputId}`);
+            const downBtn = document.getElementById(`feedback-down-${outputId}`);
+
+            if (!upBtn || !downBtn) return;
+
+            // Reset both buttons
+            upBtn.classList.remove('bg-green-100', 'text-green-700');
+            upBtn.classList.add('text-gray-400', 'hover:text-green-600');
+            downBtn.classList.remove('bg-red-100', 'text-red-700');
+            downBtn.classList.add('text-gray-400', 'hover:text-red-600');
+
+            // Highlight selected
+            if (feedbackType === 'up') {
+                upBtn.classList.remove('text-gray-400', 'hover:text-green-600');
+                upBtn.classList.add('bg-green-100', 'text-green-700');
+            } else if (feedbackType === 'down') {
+                downBtn.classList.remove('text-gray-400', 'hover:text-red-600');
+                downBtn.classList.add('bg-red-100', 'text-red-700');
+            }
+        }
+
+        function showToast(message) {
+            const toast = document.getElementById('copy-toast');
+            toast.textContent = message;
+            toast.classList.remove('hidden');
+            setTimeout(() => {
+                toast.classList.add('hidden');
+                toast.textContent = 'Copied to clipboard!';
+            }, 2000);
+        }
+
+        function renderFeedbackButtons(outputId) {
+            return `
+                <div class="flex items-center gap-1 ml-2">
+                    <button onclick="submitFeedback(${outputId}, 'up')" id="feedback-up-${outputId}"
+                        class="p-1.5 rounded-full transition text-gray-400 hover:text-green-600" title="This is great">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 10h4.764a2 2 0 011.789 2.894l-3.5 7A2 2 0 0115.263 21h-4.017c-.163 0-.326-.02-.485-.06L7 20m7-10V5a2 2 0 00-2-2h-.095c-.5 0-.905.405-.905.905 0 .714-.211 1.412-.608 2.006L7 11v9m7-10h-2M7 20H5a2 2 0 01-2-2v-6a2 2 0 012-2h2.5"></path>
+                        </svg>
+                    </button>
+                    <button onclick="submitFeedback(${outputId}, 'down')" id="feedback-down-${outputId}"
+                        class="p-1.5 rounded-full transition text-gray-400 hover:text-red-600" title="Needs improvement">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14H5.236a2 2 0 01-1.789-2.894l3.5-7A2 2 0 018.736 3h4.018a2 2 0 01.485.06l3.76.94m-7 10v5a2 2 0 002 2h.096c.5 0 .905-.405.905-.904 0-.715.211-1.413.608-2.008L17 13V4m-7 10h2m5-10h2a2 2 0 012 2v6a2 2 0 01-2 2h-2.5"></path>
+                        </svg>
+                    </button>
+                </div>
+            `;
         }
 
         function getTypeColor(type) {
@@ -411,6 +630,151 @@
             `;
         }
 
+        // Store email sequence data for "Copy All" functionality
+        window.emailSequenceData = {};
+
+        function renderEmailSequenceItem(output, index) {
+            // Email sequence specific rendering
+            const emailTypes = {
+                'immediate_value': { label: 'Immediate Value', color: 'green' },
+                'deep_dive': { label: 'Deep Dive', color: 'blue' },
+                'social_proof': { label: 'Social Proof', color: 'purple' },
+                'urgency': { label: 'Urgency', color: 'orange' },
+                'nurture': { label: 'Nurture', color: 'teal' }
+            };
+
+            const emailType = emailTypes[output.email_type] || { label: output.email_type || `Email ${index + 1}`, color: 'gray' };
+            const sendDay = output.send_day !== undefined ? output.send_day : (index * 7);
+            const subjectLine = output.subject_line || '';
+            const previewText = output.preview_text || '';
+            const body = output.body || output.step3_final || output.step2_edited || output.step1_draft || '';
+            const ctaText = output.cta_text || '';
+            const ctaUrl = output.cta_url_placeholder || '#';
+
+            // Build the full email content for copying
+            const fullEmailContent = `Subject: ${subjectLine}\n\n${body}${ctaText ? `\n\n[${ctaText}]` : ''}`;
+
+            // Store for "Copy All" functionality
+            if (!window.emailSequenceData.emails) {
+                window.emailSequenceData.emails = [];
+            }
+            window.emailSequenceData.emails[index] = {
+                day: sendDay,
+                type: emailType.label,
+                subject: subjectLine,
+                body: body,
+                cta: ctaText,
+                full: fullEmailContent
+            };
+
+            return `
+                <div class="border border-gray-200 rounded-lg overflow-hidden mb-4">
+                    <!-- Email Header -->
+                    <div class="email-header-${emailType.color} px-4 py-3 border-b border-gray-200">
+                        <div class="flex justify-between items-center">
+                            <div class="flex items-center gap-3">
+                                <span class="inline-flex items-center justify-center w-10 h-10 rounded-full email-number-${emailType.color} font-bold text-sm">
+                                    ${index + 1}
+                                </span>
+                                <div>
+                                    <div class="flex items-center gap-2">
+                                        <span class="font-semibold text-gray-800">${emailType.label}</span>
+                                        <span class="text-xs px-2 py-0.5 rounded-full email-badge-${emailType.color}">
+                                            Day ${sendDay}
+                                        </span>
+                                    </div>
+                                    <p class="text-xs text-gray-500 mt-0.5">
+                                        ${sendDay === 0 ? 'Sent immediately after event' :
+                                          sendDay === 3 ? 'Deep dive on key insight' :
+                                          sendDay === 7 ? 'Social proof & results' :
+                                          sendDay === 14 ? 'Create urgency' :
+                                          sendDay === 30 ? 'Nurture & stay connected' : `Sent on day ${sendDay}`}
+                                    </p>
+                                </div>
+                            </div>
+                            <button onclick="copyToClipboard(\`${fullEmailContent.replace(/`/g, '\\`').replace(/\$/g, '\\$')}\`)"
+                                class="text-indigo-600 hover:bg-indigo-50 px-3 py-1.5 rounded text-sm font-medium transition">
+                                Copy Email
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Email Content -->
+                    <div class="p-4 space-y-4">
+                        <!-- Subject Line -->
+                        <div class="bg-gray-50 rounded-lg p-3">
+                            <label class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Subject Line</label>
+                            <div class="flex items-center justify-between mt-1">
+                                <p class="text-gray-800 font-medium">${escapeHtml(subjectLine)}</p>
+                                <button onclick="copyToClipboard(\`${subjectLine.replace(/`/g, '\\`').replace(/\$/g, '\\$')}\`)"
+                                    class="text-xs text-gray-500 hover:text-indigo-600">
+                                    Copy
+                                </button>
+                            </div>
+                        </div>
+
+                        ${previewText ? `
+                        <!-- Preview Text -->
+                        <div class="bg-gray-50 rounded-lg p-3">
+                            <label class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Preview Text</label>
+                            <p class="text-gray-600 text-sm mt-1 italic">${escapeHtml(previewText)}</p>
+                        </div>
+                        ` : ''}
+
+                        <!-- Body -->
+                        <div>
+                            <label class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Email Body</label>
+                            <div class="mt-2 prose prose-sm max-w-none">
+                                <div class="whitespace-pre-wrap text-gray-700 leading-relaxed">${escapeHtml(body)}</div>
+                            </div>
+                        </div>
+
+                        ${ctaText ? `
+                        <!-- CTA Button -->
+                        <div class="pt-2">
+                            <label class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Call to Action</label>
+                            <div class="mt-2">
+                                <span class="inline-block bg-indigo-600 text-white px-6 py-2 rounded-lg font-medium text-sm">
+                                    ${escapeHtml(ctaText)}
+                                </span>
+                                <span class="text-xs text-gray-400 ml-2">${escapeHtml(ctaUrl)}</span>
+                            </div>
+                        </div>
+                        ` : ''}
+
+                        ${output.atoms_used && output.atoms_used.length ? `
+                        <!-- Atoms Used -->
+                        <details class="pt-2">
+                            <summary class="text-xs text-gray-500 cursor-pointer hover:text-gray-700">
+                                View atoms used (${output.atoms_used.length})
+                            </summary>
+                            <div class="mt-2 flex flex-wrap gap-2">
+                                ${output.atoms_used.map(atom => `
+                                    <span class="text-xs px-2 py-1 bg-gray-100 text-gray-600 rounded">${escapeHtml(atom)}</span>
+                                `).join('')}
+                            </div>
+                        </details>
+                        ` : ''}
+                    </div>
+                </div>
+            `;
+        }
+
+        function copyAllEmails() {
+            if (!window.emailSequenceData.emails || window.emailSequenceData.emails.length === 0) {
+                return;
+            }
+
+            const allEmailsText = window.emailSequenceData.emails
+                .filter(e => e)
+                .map((email, idx) => {
+                    return `${'='.repeat(50)}\nEMAIL ${idx + 1}: ${email.type} (Day ${email.day})\n${'='.repeat(50)}\n\n${email.full}`;
+                })
+                .join('\n\n\n');
+
+            copyToClipboard(allEmailsText);
+        }
+
         function renderOutputs(outputs) {
             const container = document.getElementById('outputs-container');
             container.innerHTML = '';
@@ -434,13 +798,29 @@
                 const section = document.createElement('div');
                 section.className = 'bg-white rounded-lg shadow-sm overflow-hidden';
 
-                const typeTitle = type.charAt(0).toUpperCase() + type.slice(1);
+                // Custom titles for content types
+                const typeTitles = {
+                    'linkedin': 'LinkedIn',
+                    'blog': 'Blog',
+                    'email': 'Email',
+                    'email_sequence': 'Email Sequence (5 emails)'
+                };
+                const typeTitle = typeTitles[type] || type.charAt(0).toUpperCase() + type.slice(1);
+
+                // Add "Copy All Emails" button for email sequences
+                const emailSequenceActions = type === 'email_sequence' ? `
+                    <button onclick="copyAllEmails()"
+                        class="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-indigo-700 transition">
+                        Copy All Emails
+                    </button>
+                ` : '';
 
                 section.innerHTML = `
-                    <div class="bg-gray-50 px-6 py-4 border-b">
+                    <div class="bg-gray-50 px-6 py-4 border-b flex justify-between items-center">
                         <h2 class="text-lg font-semibold">${typeTitle} (${items.length})</h2>
+                        ${emailSequenceActions}
                     </div>
-                    <div class="divide-y" id="outputs-${type}"></div>
+                    <div class="${type === 'email_sequence' ? 'p-4 space-y-4' : 'divide-y'}" id="outputs-${type}"></div>
                 `;
 
                 container.appendChild(section);
@@ -456,6 +836,13 @@
                     const hasWarnings = output.warnings && output.warnings.length > 0;
                     const hasHookVariations = output.hook_variations && output.hook_variations.hooks && output.hook_variations.hooks.length > 1;
 
+                    // Special rendering for email sequence
+                    if (type === 'email_sequence') {
+                        item.innerHTML = renderEmailSequenceItem(output, index);
+                        outputsDiv.appendChild(item);
+                        return;
+                    }
+
                     item.innerHTML = `
                         <div class="flex justify-between items-start mb-4">
                             <div class="flex items-center gap-2">
@@ -464,12 +851,22 @@
                                 ${hasWarnings ? '<span class="text-xs px-2 py-1 bg-yellow-100 text-yellow-700 rounded">Has Warnings</span>' : ''}
                                 ${hasHookVariations ? '<span class="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded">5 Hook Options</span>' : ''}
                             </div>
-                            ${!hasHookVariations ? `
-                                <button onclick="copyToClipboard(\`${content.replace(/`/g, '\\`').replace(/\$/g, '\\$')}\`)"
-                                    class="text-indigo-600 hover:underline text-sm">
-                                    Copy
+                            <div class="flex items-center gap-3">
+                                ${!hasHookVariations ? `
+                                    <button onclick="copyToClipboard(\`${content.replace(/`/g, '\\`').replace(/\$/g, '\\$')}\`)"
+                                        class="text-indigo-600 hover:underline text-sm">
+                                        Copy
+                                    </button>
+                                ` : ''}
+                                <button onclick="saveToSwipeFile(${output.id}, '${type}', \`${content.replace(/`/g, '\\`').replace(/\$/g, '\\$')}\`)"
+                                    class="text-green-600 hover:underline text-sm flex items-center gap-1">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"></path>
+                                    </svg>
+                                    Save
                                 </button>
-                            ` : ''}
+                                ${renderFeedbackButtons(output.id)}
+                            </div>
                         </div>
 
                         ${hasHookVariations ? renderHookSelector(output, outputId) : `

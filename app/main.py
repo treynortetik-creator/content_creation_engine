@@ -13,7 +13,7 @@ from slowapi.errors import RateLimitExceeded
 
 from app.config import get_settings
 from app.database import init_db
-from app.api import upload, jobs, library, admin, auth, personas, brand_voice, memory
+from app.api import upload, jobs, library, admin, auth, personas, brand_voice, memory, swipe, feedback, analytics, export
 from app.api import admin_views
 
 settings = get_settings()
@@ -86,6 +86,10 @@ app.include_router(library.router, prefix="/api", tags=["library"])
 app.include_router(personas.router, prefix="/api", tags=["personas"])
 app.include_router(brand_voice.router, prefix="/api", tags=["brand-voice"])
 app.include_router(memory.router, prefix="/api", tags=["memory"])
+app.include_router(swipe.router, prefix="/api", tags=["swipe-file"])
+app.include_router(feedback.router, prefix="/api", tags=["feedback"])
+app.include_router(analytics.router, prefix="/api", tags=["analytics"])
+app.include_router(export.router, prefix="/api", tags=["export"])
 # Register admin views FIRST so HTML pages take priority over API responses
 app.include_router(admin_views.router, prefix="/admin", tags=["admin-views"])
 app.include_router(admin.router, prefix="/api/admin", tags=["admin-api"])

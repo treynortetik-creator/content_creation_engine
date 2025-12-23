@@ -180,6 +180,38 @@ async def init_db():
                 FOREIGN KEY (user_id) REFERENCES users(id)
             );
             CREATE INDEX IF NOT EXISTS idx_memory_rules_user_id ON memory_rules(user_id);
+
+            -- Swipe file for saving favorite outputs
+            CREATE TABLE IF NOT EXISTS swipe_file (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL,
+                output_id INTEGER,
+                content_type TEXT NOT NULL,
+                content TEXT NOT NULL,
+                source_title TEXT,
+                notes TEXT,
+                patterns_extracted JSON,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (user_id) REFERENCES users(id),
+                FOREIGN KEY (output_id) REFERENCES outputs(id)
+            );
+            CREATE INDEX IF NOT EXISTS idx_swipe_file_user_id ON swipe_file(user_id);
+            CREATE INDEX IF NOT EXISTS idx_swipe_file_content_type ON swipe_file(content_type);
+
+            -- Feedback on outputs (thumbs up/down)
+            CREATE TABLE IF NOT EXISTS output_feedback (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL,
+                output_id INTEGER NOT NULL,
+                feedback_type TEXT NOT NULL CHECK (feedback_type IN ('up', 'down')),
+                reason TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (user_id) REFERENCES users(id),
+                FOREIGN KEY (output_id) REFERENCES outputs(id),
+                UNIQUE(user_id, output_id)
+            );
+            CREATE INDEX IF NOT EXISTS idx_output_feedback_user_id ON output_feedback(user_id);
+            CREATE INDEX IF NOT EXISTS idx_output_feedback_output_id ON output_feedback(output_id);
         """)
 
         await db.commit()
@@ -196,6 +228,17 @@ async def init_db():
             await db.execute("SELECT hook_variations FROM outputs LIMIT 1")
         except aiosqlite.OperationalError:
             await db.execute("ALTER TABLE outputs ADD COLUMN hook_variations JSON")
+            await db.commit()
+
+        # Migration: Add email sequence columns to outputs if missing
+        try:
+            await db.execute("SELECT subject_line FROM outputs LIMIT 1")
+        except aiosqlite.OperationalError:
+            await db.execute("ALTER TABLE outputs ADD COLUMN subject_line TEXT")
+            await db.execute("ALTER TABLE outputs ADD COLUMN preview_text TEXT")
+            await db.execute("ALTER TABLE outputs ADD COLUMN send_day INTEGER")
+            await db.execute("ALTER TABLE outputs ADD COLUMN email_type TEXT")
+            await db.execute("ALTER TABLE outputs ADD COLUMN cta_text TEXT")
             await db.commit()
 
         # Create default user if not exists

@@ -9,7 +9,7 @@ from app.database import get_db
 from app.models.job import JobStatus
 from app.services.transcription import transcribe_file, cleanup_transcript, extract_document_content
 from app.services.atomization import atomize_content
-from app.services.drafting import draft_linkedin_posts, draft_blog_post, draft_email, draft_linkedin_quick
+from app.services.drafting import draft_linkedin_posts, draft_blog_post, draft_email, draft_linkedin_quick, draft_email_sequence
 from app.services.editing import batch_edit_content
 from app.services.factcheck import batch_factcheck_content
 from app.services.library_manager import (
@@ -359,6 +359,24 @@ async def process_job(job_id: str):
                 "subject": email_draft.get("subject", ""),
                 "atoms_used": email_draft.get("atoms_used", []),
             })
+
+        # Generate email sequence if requested
+        if "email_sequence" in asset_types:
+            email_sequence, seq_cost = await draft_email_sequence(atoms, combined_persona, user_id=user_id)
+            total_cost += seq_cost
+
+            for i, email in enumerate(email_sequence):
+                all_drafts.append({
+                    "content_type": "email_sequence",
+                    "variation_number": i + 1,
+                    "content": email.get("body", ""),
+                    "subject": email.get("subject_line", ""),
+                    "preview_text": email.get("preview_text", ""),
+                    "send_day": email.get("send_day", 0),
+                    "email_type": email.get("email_type", ""),
+                    "cta_text": email.get("cta_text", ""),
+                    "atoms_used": email.get("atoms_used", []),
+                })
 
         # ======== STEP 3: EDITING ========
         await update_job_status(

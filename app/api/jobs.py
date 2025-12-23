@@ -108,7 +108,8 @@ async def get_job_results(
             """
             SELECT id, content_type, variation_number,
                    step1_draft, step2_edited, step3_final,
-                   atoms_used, citations, warnings, quality_scores, hook_variations
+                   atoms_used, citations, warnings, quality_scores, hook_variations,
+                   subject_line, preview_text, send_day, email_type, cta_text
             FROM outputs WHERE job_id = ?
             ORDER BY content_type, variation_number
             """,
@@ -118,7 +119,7 @@ async def get_job_results(
 
         outputs = []
         for row in output_rows:
-            outputs.append({
+            output_data = {
                 "id": row["id"],
                 "content_type": row["content_type"],
                 "variation_number": row["variation_number"],
@@ -130,7 +131,19 @@ async def get_job_results(
                 "warnings": json.loads(row["warnings"]) if row["warnings"] else [],
                 "quality_scores": json.loads(row["quality_scores"]) if row["quality_scores"] else None,
                 "hook_variations": json.loads(row["hook_variations"]) if row["hook_variations"] else None,
-            })
+            }
+
+            # Add email sequence specific fields if present
+            if row["content_type"] == "email_sequence":
+                output_data["subject_line"] = row["subject_line"]
+                output_data["preview_text"] = row["preview_text"]
+                output_data["send_day"] = row["send_day"]
+                output_data["email_type"] = row["email_type"]
+                output_data["cta_text"] = row["cta_text"]
+                # Use step1_draft as body if step3_final not available
+                output_data["body"] = row["step3_final"] or row["step2_edited"] or row["step1_draft"]
+
+            outputs.append(output_data)
 
         # Get atoms
         cursor = await db.execute(

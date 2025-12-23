@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Swipe File - ContentMultiplier</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="/static/styles.css">
+    <script src="/static/auth.js"></script>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <!-- Navigation -->
+    <nav class="bg-white shadow-sm border-b">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16">
+                <div class="flex items-center">
+                    <a href="/" class="text-xl font-bold text-indigo-600">ContentMultiplier</a>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <a href="/upload.html" class="text-gray-600 hover:text-gray-900">Upload</a>
+                    <a href="/library.html" class="text-gray-600 hover:text-gray-900">Library</a>
+                    <a href="/swipe.html" class="text-indigo-600 font-medium">Swipe File</a>
+                    <div id="navbar-user" class="flex items-center"></div>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <div class="max-w-6xl mx-auto px-4 py-8">
+        <!-- Header -->
+        <div class="flex justify-between items-center mb-8">
+            <div>
+                <h1 class="text-3xl font-bold">Swipe File</h1>
+                <p class="text-gray-600 mt-1">Your saved favorites - the AI learns from these patterns</p>
+            </div>
+        </div>
+
+        <!-- Pattern Summary -->
+        <div id="pattern-summary" class="bg-gradient-to-r from-green-50 to-blue-50 rounded-lg p-6 mb-8 hidden">
+            <h2 class="text-lg font-semibold text-gray-800 mb-4">Your Writing Patterns</h2>
+            <div class="grid md:grid-cols-4 gap-4" id="pattern-cards"></div>
+        </div>
+
+        <!-- Filter Tabs -->
+        <div class="mb-6 flex gap-2">
+            <button class="filter-btn px-4 py-2 rounded-lg bg-indigo-600 text-white font-medium" data-type="all">
+                All
+            </button>
+            <button class="filter-btn px-4 py-2 rounded-lg bg-gray-100 text-gray-600" data-type="linkedin">
+                LinkedIn
+            </button>
+            <button class="filter-btn px-4 py-2 rounded-lg bg-gray-100 text-gray-600" data-type="blog">
+                Blog
+            </button>
+            <button class="filter-btn px-4 py-2 rounded-lg bg-gray-100 text-gray-600" data-type="email">
+                Email
+            </button>
+            <button class="filter-btn px-4 py-2 rounded-lg bg-gray-100 text-gray-600" data-type="email_sequence">
+                Email Sequence
+            </button>
+        </div>
+
+        <!-- Loading State -->
+        <div id="loading" class="text-center py-12">
+            <div class="animate-spin h-8 w-8 border-4 border-indigo-600 border-t-transparent rounded-full mx-auto"></div>
+            <p class="mt-4 text-gray-600">Loading swipe file...</p>
+        </div>
+
+        <!-- Empty State -->
+        <div id="empty-state" class="hidden text-center py-12 bg-white rounded-lg shadow-sm">
+            <div class="text-6xl mb-4">&#128218;</div>
+            <h3 class="text-xl font-semibold text-gray-800 mb-2">Your swipe file is empty</h3>
+            <p class="text-gray-600 mb-4">Save your favorite outputs to build a collection of patterns the AI can learn from.</p>
+            <a href="/library.html" class="text-indigo-600 hover:underline">Browse your library</a>
+        </div>
+
+        <!-- Swipe List -->
+        <div id="swipe-container" class="space-y-4 hidden"></div>
+    </div>
+
+    <!-- Toast -->
+    <div id="toast" class="fixed bottom-4 right-4 bg-gray-800 text-white px-4 py-2 rounded-lg shadow-lg hidden">
+        Message here
+    </div>
+
+    <script>
+        // Require authentication
+        if (!Auth.requireAuth()) {
+            // Will redirect to login
+        }
+
+        let allSwipes = [];
+        let currentFilter = 'all';
+
+        // Filter button clicks
+        document.querySelectorAll('.filter-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                currentFilter = btn.dataset.type;
+
+                document.querySelectorAll('.filter-btn').forEach(b => {
+                    b.classList.remove('bg-indigo-600', 'text-white');
+                    b.classList.add('bg-gray-100', 'text-gray-600');
+                });
+                btn.classList.remove('bg-gray-100', 'text-gray-600');
+                btn.classList.add('bg-indigo-600', 'text-white');
+
+                renderSwipes();
+            });
+        });
+
+        function showToast(message) {
+            const toast = document.getElementById('toast');
+            toast.textContent = message;
+            toast.classList.remove('hidden');
+            setTimeout(() => toast.classList.add('hidden'), 3000);
+        }
+
+        async function deleteSwipe(swipeId) {
+            if (!confirm('Remove this from your swipe file?')) return;
+
+            try {
+                const response = await Auth.fetchWithAuth(`/api/swipe/${swipeId}`, {
+                    method: 'DELETE'
+                });
+
+                if (response.ok) {
+                    allSwipes = allSwipes.filter(s => s.id !== swipeId);
+                    renderSwipes();
+                    showToast('Removed from swipe file');
+                    loadPatterns(); // Refresh patterns
+                } else {
+                    showToast('Failed to remove');
+                }
+            } catch (err) {
+                console.error('Delete error:', err);
+                showToast('Failed to remove');
+            }
+        }
+
+        function copyToClipboard(text) {
+            navigator.clipboard.writeText(text);
+            showToast('Copied to clipboard!');
+        }
+
+        function getTypeColor(type) {
+            const colors = {
+                'linkedin': 'indigo',
+                'blog': 'green',
+                'email': 'blue',
+                'email_sequence': 'purple'
+            };
+            return colors[type] || 'gray';
+        }
+
+        function renderPatternCard(title, items, icon) {
+            if (!items || items.length === 0) return '';
+
+            return `
+                <div class="bg-white rounded-lg p-4 shadow-sm">
+                    <div class="flex items-center gap-2 mb-3">
+                        <span class="text-xl">${icon}</span>
+                        <h3 class="font-medium text-gray-800">${title}</h3>
+                    </div>
+                    <div class="space-y-2">
+                        ${items.slice(0, 3).map(item => `
+                            <div class="flex justify-between items-center text-sm">
+                                <span class="text-gray-600 capitalize">${(item.style || item.structure || item.technique || item.tone || '').replace(/_/g, ' ')}</span>
+                                <span class="text-gray-400">${item.count}x</span>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderSwipes() {
+            const container = document.getElementById('swipe-container');
+            const emptyState = document.getElementById('empty-state');
+
+            const filtered = currentFilter === 'all'
+                ? allSwipes
+                : allSwipes.filter(s => s.content_type === currentFilter);
+
+            if (filtered.length === 0) {
+                container.classList.add('hidden');
+                emptyState.classList.remove('hidden');
+                return;
+            }
+
+            emptyState.classList.add('hidden');
+            container.classList.remove('hidden');
+
+            container.innerHTML = filtered.map(swipe => {
+                const color = getTypeColor(swipe.content_type);
+                const patterns = swipe.patterns_extracted || {};
+                const date = new Date(swipe.created_at).toLocaleDateString();
+
+                return `
+                    <div class="bg-white rounded-lg shadow-sm overflow-hidden">
+                        <div class="px-6 py-4 border-b border-gray-100 flex justify-between items-start">
+                            <div class="flex items-center gap-3">
+                                <span class="px-2 py-1 text-xs font-medium rounded bg-${color}-100 text-${color}-700 capitalize">
+                                    ${swipe.content_type.replace('_', ' ')}
+                                </span>
+                                ${swipe.source_title ? `
+                                    <span class="text-sm text-gray-500">${swipe.source_title}</span>
+                                ` : ''}
+                                <span class="text-xs text-gray-400">${date}</span>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <button onclick="copyToClipboard(\`${swipe.content.replace(/`/g, '\\`').replace(/\$/g, '\\$')}\`)"
+                                    class="text-indigo-600 hover:text-indigo-800 text-sm">
+                                    Copy
+                                </button>
+                                <button onclick="deleteSwipe(${swipe.id})"
+                                    class="text-red-600 hover:text-red-800 text-sm">
+                                    Remove
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="px-6 py-4">
+                            <div class="whitespace-pre-wrap text-gray-700 text-sm max-h-48 overflow-y-auto">
+                                ${swipe.content}
+                            </div>
+                        </div>
+
+                        ${patterns.hook_style || patterns.structure || patterns.techniques?.length ? `
+                            <div class="px-6 py-3 bg-gray-50 border-t border-gray-100">
+                                <div class="flex flex-wrap gap-2 text-xs">
+                                    ${patterns.hook_style ? `
+                                        <span class="px-2 py-1 bg-blue-100 text-blue-700 rounded capitalize">
+                                            Hook: ${patterns.hook_style.replace('_', ' ')}
+                                        </span>
+                                    ` : ''}
+                                    ${patterns.structure ? `
+                                        <span class="px-2 py-1 bg-green-100 text-green-700 rounded capitalize">
+                                            Structure: ${patterns.structure.replace('_', ' ')}
+                                        </span>
+                                    ` : ''}
+                                    ${patterns.tone ? `
+                                        <span class="px-2 py-1 bg-purple-100 text-purple-700 rounded capitalize">
+                                            Tone: ${patterns.tone}
+                                        </span>
+                                    ` : ''}
+                                    ${(patterns.techniques || []).slice(0, 3).map(t => `
+                                        <span class="px-2 py-1 bg-gray-100 text-gray-600 rounded capitalize">
+                                            ${t.replace('_', ' ')}
+                                        </span>
+                                    `).join('')}
+                                </div>
+                            </div>
+                        ` : ''}
+
+                        ${swipe.notes ? `
+                            <div class="px-6 py-3 bg-yellow-50 border-t border-yellow-100">
+                                <p class="text-sm text-yellow-700">
+                                    <strong>Notes:</strong> ${swipe.notes}
+                                </p>
+                            </div>
+                        ` : ''}
+                    </div>
+                `;
+            }).join('');
+        }
+
+        async function loadPatterns() {
+            try {
+                const response = await Auth.fetchWithAuth('/api/swipe/patterns');
+                const data = await response.json();
+
+                if (response.ok && data.total_swipes > 0) {
+                    const summary = document.getElementById('pattern-summary');
+                    const cards = document.getElementById('pattern-cards');
+
+                    cards.innerHTML = [
+                        renderPatternCard('Preferred Hooks', data.preferred_hooks, '&#128293;'),
+                        renderPatternCard('Content Structure', data.preferred_structures, '&#128202;'),
+                        renderPatternCard('Writing Techniques', data.common_techniques, '&#9997;'),
+                        renderPatternCard('Tone & Voice', data.preferred_tones, '&#127908;'),
+                    ].filter(Boolean).join('');
+
+                    if (cards.innerHTML.trim()) {
+                        summary.classList.remove('hidden');
+                    }
+                }
+            } catch (err) {
+                console.error('Failed to load patterns:', err);
+            }
+        }
+
+        async function loadSwipes() {
+            try {
+                const response = await Auth.fetchWithAuth('/api/swipe');
+                const data = await response.json();
+
+                document.getElementById('loading').classList.add('hidden');
+
+                if (response.ok) {
+                    allSwipes = data.swipes || [];
+                    renderSwipes();
+                    loadPatterns();
+                } else {
+                    document.getElementById('empty-state').classList.remove('hidden');
+                }
+            } catch (err) {
+                console.error('Failed to load swipes:', err);
+                document.getElementById('loading').innerHTML = `
+                    <p class="text-red-600">Failed to load swipe file</p>
+                `;
+            }
+        }
+
+        loadSwipes();
+    </script>
+</body>
+</html>

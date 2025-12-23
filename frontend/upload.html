@@ -121,6 +121,12 @@
                         <input type="number" id="qty-email" value="1" min="1" max="3"
                             class="ml-auto w-16 border border-gray-300 rounded p-1 text-center">
                     </label>
+                    <label class="flex items-center">
+                        <input type="checkbox" id="asset-email_sequence"
+                            class="h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500">
+                        <span class="ml-2">Email Sequence (5 emails)</span>
+                        <span class="ml-auto text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">Day 0-30</span>
+                    </label>
                 </div>
             </div>
 
@@ -313,6 +319,10 @@
             if (document.getElementById('asset-email').checked) {
                 assetTypes.push('email');
                 assetQuantities.email = parseInt(document.getElementById('qty-email').value);
+            }
+            if (document.getElementById('asset-email_sequence').checked) {
+                assetTypes.push('email_sequence');
+                assetQuantities.email_sequence = 5;  // Always 5 emails in sequence
             }
 
             if (assetTypes.length === 0) {

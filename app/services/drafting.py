@@ -12,6 +12,7 @@ from app.utils.retry import retry_async, claude_circuit_breaker
 from app.services import settings_manager
 from app.api.brand_voice import get_user_brand_context, format_brand_voice_for_prompt
 from app.api.memory import get_user_memory_rules, format_memory_rules_for_prompt
+from app.api.swipe import get_user_swipe_patterns
 
 settings = get_settings()
 
@@ -195,9 +196,10 @@ async def draft_linkedin_posts(
 
     prompt, config = await get_rendered_prompt("linkedin_draft", variables)
 
-    # Fetch and inject brand voice and memory rules if user_id provided
+    # Fetch and inject brand voice, memory rules, and swipe patterns if user_id provided
     brand_voice_section = ""
     memory_rules_section = ""
+    swipe_patterns_section = ""
     if user_id:
         brand_context = await get_user_brand_context(user_id)
         if brand_context:
@@ -207,8 +209,12 @@ async def draft_linkedin_posts(
         if memory_rules:
             memory_rules_section = format_memory_rules_for_prompt(memory_rules)
 
+        swipe_patterns = await get_user_swipe_patterns(user_id, "linkedin")
+        if swipe_patterns:
+            swipe_patterns_section = swipe_patterns
+
     # Add JSON output instruction
-    full_prompt = brand_voice_section + memory_rules_section + prompt + f"""
+    full_prompt = brand_voice_section + memory_rules_section + swipe_patterns_section + prompt + f"""
 
 Generate exactly {count} LinkedIn post variations.
 
@@ -285,9 +291,10 @@ async def draft_linkedin_quick(
         for a in atoms[:5]  # Use top 5 atoms max
     ])
 
-    # Fetch brand voice and memory rules if available
+    # Fetch brand voice, memory rules, and swipe patterns if available
     brand_voice_section = ""
     memory_rules_section = ""
+    swipe_patterns_section = ""
     if user_id:
         brand_context = await get_user_brand_context(user_id)
         if brand_context:
@@ -297,7 +304,11 @@ async def draft_linkedin_quick(
         if memory_rules:
             memory_rules_section = format_memory_rules_for_prompt(memory_rules)
 
-    prompt = f"""{brand_voice_section}{memory_rules_section}
+        swipe_patterns = await get_user_swipe_patterns(user_id, "linkedin")
+        if swipe_patterns:
+            swipe_patterns_section = swipe_patterns
+
+    prompt = f"""{brand_voice_section}{memory_rules_section}{swipe_patterns_section}
 Generate ONE compelling LinkedIn post using these content atoms.
 
 CONTENT ATOMS:
@@ -383,9 +394,10 @@ async def draft_blog_post(
 
     prompt, config = await get_rendered_prompt("blog_draft", variables)
 
-    # Fetch and inject brand voice and memory rules if user_id provided
+    # Fetch and inject brand voice, memory rules, and swipe patterns if user_id provided
     brand_voice_section = ""
     memory_rules_section = ""
+    swipe_patterns_section = ""
     if user_id:
         brand_context = await get_user_brand_context(user_id)
         if brand_context:
@@ -395,8 +407,12 @@ async def draft_blog_post(
         if memory_rules:
             memory_rules_section = format_memory_rules_for_prompt(memory_rules)
 
+        swipe_patterns = await get_user_swipe_patterns(user_id, "blog")
+        if swipe_patterns:
+            swipe_patterns_section = swipe_patterns
+
     # Add JSON output instruction
-    full_prompt = brand_voice_section + memory_rules_section + prompt + """
+    full_prompt = brand_voice_section + memory_rules_section + swipe_patterns_section + prompt + """
 
 OUTPUT FORMAT (valid JSON):
 {
@@ -484,9 +500,10 @@ async def draft_email(
 
     prompt, config = await get_rendered_prompt("email_draft", variables)
 
-    # Fetch and inject brand voice and memory rules if user_id provided
+    # Fetch and inject brand voice, memory rules, and swipe patterns if user_id provided
     brand_voice_section = ""
     memory_rules_section = ""
+    swipe_patterns_section = ""
     if user_id:
         brand_context = await get_user_brand_context(user_id)
         if brand_context:
@@ -496,8 +513,12 @@ async def draft_email(
         if memory_rules:
             memory_rules_section = format_memory_rules_for_prompt(memory_rules)
 
+        swipe_patterns = await get_user_swipe_patterns(user_id, "email")
+        if swipe_patterns:
+            swipe_patterns_section = swipe_patterns
+
     # Add output instruction
-    full_prompt = brand_voice_section + memory_rules_section + prompt + """
+    full_prompt = brand_voice_section + memory_rules_section + swipe_patterns_section + prompt + """
 
 OUTPUT FORMAT (valid JSON):
 {
@@ -527,3 +548,101 @@ OUTPUT FORMAT (valid JSON):
     cost = calculate_cost(actual_model, input_tokens, output_tokens)
 
     return result, cost
+
+
+async def draft_email_sequence(
+    atoms: list[dict],
+    target_persona: Union[str, dict],
+    user_id: int = None,
+) -> Tuple[list[dict], float]:
+    """
+    Generate a 5-email sequence using Claude.
+
+    Args:
+        atoms: List of content atoms to use
+        target_persona: Either a persona ID string (legacy) or a combined persona dict
+        user_id: User ID for fetching brand voice context
+
+    Returns (emails_list, cost) tuple.
+    """
+    # Handle both legacy (persona_id string) and new format (combined persona dict)
+    if isinstance(target_persona, str):
+        persona = await get_persona(target_persona)
+        if not persona:
+            raise ValueError(f"Persona not found: {target_persona}")
+        persona_title = persona["title"]
+        priorities = persona.get("priorities", [])
+        pain_points = persona.get("pain_points", [])
+    else:
+        persona_title = target_persona.get("title", "Target Audience")
+        priorities = target_persona.get("priorities", [])
+        pain_points = target_persona.get("pain_points", [])
+
+    priorities_str = ", ".join(priorities[:5]) if priorities else "Not specified"
+    pain_points_str = ", ".join(pain_points[:5]) if pain_points else "Not specified"
+
+    # Group atoms by type for strategic assignment
+    grouped = group_atoms_by_type(atoms)
+
+    # Format atoms for prompt
+    atoms_text = ""
+    for atom_type, type_atoms in grouped.items():
+        if type_atoms:
+            atoms_text += f"\n[{atom_type.upper()} ATOMS]\n"
+            for a in type_atoms[:5]:
+                atoms_text += f"- {a['content'][:300]}\n"
+
+    # Fetch brand voice, memory rules, and swipe patterns
+    brand_voice_section = ""
+    memory_rules_section = ""
+    swipe_patterns_section = ""
+    if user_id:
+        brand_context = await get_user_brand_context(user_id)
+        if brand_context:
+            brand_voice_section = format_brand_voice_for_prompt(brand_context, "email")
+
+        memory_rules = await get_user_memory_rules(user_id)
+        if memory_rules:
+            memory_rules_section = format_memory_rules_for_prompt(memory_rules)
+
+        swipe_patterns = await get_user_swipe_patterns(user_id, "email_sequence")
+        if swipe_patterns:
+            swipe_patterns_section = swipe_patterns
+
+    variables = {
+        "atoms": atoms_text,
+        "persona_title": persona_title,
+        "persona_priorities": priorities_str,
+        "persona_pain_points": pain_points_str,
+        "brand_voice": brand_voice_section or "Professional and engaging",
+    }
+
+    prompt, config = await get_rendered_prompt("email_sequence", variables)
+
+    full_prompt = brand_voice_section + memory_rules_section + swipe_patterns_section + prompt
+
+    # Use Claude for email sequence (voice matters)
+    admin_model = settings_manager.get_model_for_step("drafting")
+    model = admin_model or config.get("model", "claude-sonnet-4-20250514")
+
+    response_text, input_tokens, output_tokens, actual_model = await call_llm(
+        full_prompt, model, max_tokens=4000
+    )
+
+    # Parse response
+    try:
+        result = json.loads(response_text)
+    except json.JSONDecodeError:
+        start = response_text.find("{")
+        end = response_text.rfind("}") + 1
+        if start >= 0 and end > start:
+            result = json.loads(response_text[start:end])
+        else:
+            raise ValueError("Failed to parse email sequence as JSON")
+
+    emails = result.get("emails", [])
+
+    # Calculate cost
+    cost = calculate_cost(actual_model, input_tokens, output_tokens)
+
+    return emails, cost

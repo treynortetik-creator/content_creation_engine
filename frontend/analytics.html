@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Analytics - ContentMultiplier</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="/static/styles.css">
+    <script src="/static/auth.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <!-- Navigation -->
+    <nav class="bg-white shadow-sm border-b">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16">
+                <div class="flex items-center">
+                    <a href="/" class="text-xl font-bold text-indigo-600">ContentMultiplier</a>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <a href="/upload.html" class="text-gray-600 hover:text-gray-900">Upload</a>
+                    <a href="/library.html" class="text-gray-600 hover:text-gray-900">Library</a>
+                    <a href="/swipe.html" class="text-gray-600 hover:text-gray-900">Swipe File</a>
+                    <a href="/analytics.html" class="text-indigo-600 font-medium">Analytics</a>
+                    <div id="navbar-user" class="flex items-center"></div>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <div class="max-w-7xl mx-auto px-4 py-8">
+        <!-- Header -->
+        <div class="flex justify-between items-center mb-8">
+            <div>
+                <h1 class="text-3xl font-bold">Usage Analytics</h1>
+                <p class="text-gray-600 mt-1">Track your content ROI and productivity gains</p>
+            </div>
+            <div class="flex gap-2">
+                <button onclick="loadAnalytics(7)" id="btn-7" class="px-4 py-2 rounded-lg bg-gray-100 text-gray-600">7 Days</button>
+                <button onclick="loadAnalytics(30)" id="btn-30" class="px-4 py-2 rounded-lg bg-indigo-600 text-white">30 Days</button>
+                <button onclick="loadAnalytics(90)" id="btn-90" class="px-4 py-2 rounded-lg bg-gray-100 text-gray-600">90 Days</button>
+                <button onclick="loadAnalytics(365)" id="btn-365" class="px-4 py-2 rounded-lg bg-gray-100 text-gray-600">1 Year</button>
+            </div>
+        </div>
+
+        <!-- Loading State -->
+        <div id="loading" class="text-center py-12">
+            <div class="animate-spin h-8 w-8 border-4 border-indigo-600 border-t-transparent rounded-full mx-auto"></div>
+            <p class="mt-4 text-gray-600">Loading analytics...</p>
+        </div>
+
+        <!-- Dashboard -->
+        <div id="dashboard" class="hidden">
+            <!-- Key Metrics -->
+            <div class="grid md:grid-cols-4 gap-4 mb-8">
+                <div class="bg-white rounded-lg shadow-sm p-6">
+                    <div class="text-sm text-gray-500 uppercase tracking-wide">Content Generated</div>
+                    <div class="text-3xl font-bold text-gray-900 mt-2" id="total-outputs">0</div>
+                    <div class="text-sm text-gray-500 mt-1" id="total-jobs">0 jobs</div>
+                </div>
+
+                <div class="bg-white rounded-lg shadow-sm p-6">
+                    <div class="text-sm text-gray-500 uppercase tracking-wide">Total Cost</div>
+                    <div class="text-3xl font-bold text-gray-900 mt-2" id="total-cost">$0.00</div>
+                    <div class="text-sm text-gray-500 mt-1" id="cost-per-piece">$0.00 per piece</div>
+                </div>
+
+                <div class="bg-white rounded-lg shadow-sm p-6">
+                    <div class="text-sm text-gray-500 uppercase tracking-wide">Time Saved</div>
+                    <div class="text-3xl font-bold text-green-600 mt-2" id="hours-saved">0h</div>
+                    <div class="text-sm text-gray-500 mt-1" id="days-saved">0 work days</div>
+                </div>
+
+                <div class="bg-white rounded-lg shadow-sm p-6">
+                    <div class="text-sm text-gray-500 uppercase tracking-wide">Cost Savings</div>
+                    <div class="text-3xl font-bold text-green-600 mt-2" id="cost-savings">$0</div>
+                    <div class="text-sm text-gray-500 mt-1" id="roi-percentage">0% ROI</div>
+                </div>
+            </div>
+
+            <!-- ROI Banner -->
+            <div class="bg-gradient-to-r from-green-500 to-emerald-600 rounded-lg shadow-sm p-6 mb-8 text-white">
+                <div class="flex justify-between items-center">
+                    <div>
+                        <h3 class="text-lg font-semibold">Your Content ROI</h3>
+                        <p class="text-green-100 mt-1">Compared to outsourcing the same content</p>
+                    </div>
+                    <div class="text-right">
+                        <div class="text-4xl font-bold" id="roi-banner">0%</div>
+                        <div class="text-green-100" id="savings-banner">$0 saved</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Content by Type & Quality -->
+            <div class="grid md:grid-cols-2 gap-6 mb-8">
+                <!-- Content by Type -->
+                <div class="bg-white rounded-lg shadow-sm p-6">
+                    <h3 class="font-semibold text-gray-800 mb-4">Content by Type</h3>
+                    <div id="content-by-type" class="space-y-4"></div>
+                </div>
+
+                <!-- Quality & Feedback -->
+                <div class="bg-white rounded-lg shadow-sm p-6">
+                    <h3 class="font-semibold text-gray-800 mb-4">Quality Metrics</h3>
+                    <div class="space-y-6">
+                        <div>
+                            <div class="flex justify-between text-sm mb-2">
+                                <span class="text-gray-600">Average Quality Score</span>
+                                <span class="font-medium" id="avg-quality">0/100</span>
+                            </div>
+                            <div class="w-full bg-gray-200 rounded-full h-3">
+                                <div class="bg-indigo-600 h-3 rounded-full" id="quality-bar" style="width: 0%"></div>
+                            </div>
+                        </div>
+
+                        <div>
+                            <div class="flex justify-between text-sm mb-2">
+                                <span class="text-gray-600">Thumbs Up Rate</span>
+                                <span class="font-medium" id="thumbs-rate">0%</span>
+                            </div>
+                            <div class="w-full bg-gray-200 rounded-full h-3">
+                                <div class="bg-green-500 h-3 rounded-full" id="thumbs-bar" style="width: 0%"></div>
+                            </div>
+                        </div>
+
+                        <div class="flex justify-between pt-4 border-t">
+                            <div class="text-center">
+                                <div class="text-2xl font-bold text-green-600" id="feedback-up">0</div>
+                                <div class="text-xs text-gray-500">Thumbs Up</div>
+                            </div>
+                            <div class="text-center">
+                                <div class="text-2xl font-bold text-red-600" id="feedback-down">0</div>
+                                <div class="text-xs text-gray-500">Thumbs Down</div>
+                            </div>
+                            <div class="text-center">
+                                <div class="text-2xl font-bold text-blue-600" id="atoms-count">0</div>
+                                <div class="text-xs text-gray-500">Atoms Extracted</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Activity Chart -->
+            <div class="bg-white rounded-lg shadow-sm p-6">
+                <h3 class="font-semibold text-gray-800 mb-4">Daily Activity</h3>
+                <div style="height: 250px;">
+                    <canvas id="activity-chart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Require authentication
+        if (!Auth.requireAuth()) {
+            // Will redirect to login
+        }
+
+        let currentDays = 30;
+        let activityChart = null;
+
+        function updatePeriodButtons(days) {
+            [7, 30, 90, 365].forEach(d => {
+                const btn = document.getElementById(`btn-${d}`);
+                if (d === days) {
+                    btn.classList.remove('bg-gray-100', 'text-gray-600');
+                    btn.classList.add('bg-indigo-600', 'text-white');
+                } else {
+                    btn.classList.remove('bg-indigo-600', 'text-white');
+                    btn.classList.add('bg-gray-100', 'text-gray-600');
+                }
+            });
+        }
+
+        function renderContentByType(data) {
+            const container = document.getElementById('content-by-type');
+            const types = Object.entries(data).sort((a, b) => b[1].count - a[1].count);
+
+            if (types.length === 0) {
+                container.innerHTML = '<p class="text-gray-500 text-center py-4">No content generated yet</p>';
+                return;
+            }
+
+            const typeLabels = {
+                'linkedin': 'LinkedIn Posts',
+                'blog': 'Blog Posts',
+                'email': 'Emails',
+                'email_sequence': 'Email Sequences',
+            };
+
+            const typeColors = {
+                'linkedin': 'indigo',
+                'blog': 'green',
+                'email': 'blue',
+                'email_sequence': 'purple',
+            };
+
+            container.innerHTML = types.map(([type, stats]) => {
+                const label = typeLabels[type] || type;
+                const color = typeColors[type] || 'gray';
+                const quality = stats.avg_quality ? `${stats.avg_quality}/100` : 'N/A';
+                const hours = Math.round(stats.time_saved_minutes / 60);
+
+                return `
+                    <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                        <div class="flex items-center gap-3">
+                            <div class="w-3 h-3 rounded-full bg-${color}-500"></div>
+                            <div>
+                                <div class="font-medium text-gray-800">${label}</div>
+                                <div class="text-xs text-gray-500">Quality: ${quality}</div>
+                            </div>
+                        </div>
+                        <div class="text-right">
+                            <div class="font-bold text-gray-800">${stats.count}</div>
+                            <div class="text-xs text-gray-500">${hours}h saved</div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function renderActivityChart(dailyActivity) {
+            const ctx = document.getElementById('activity-chart').getContext('2d');
+
+            // Prepare data
+            const dates = dailyActivity.map(d => d.date).reverse();
+            const jobs = dailyActivity.map(d => d.jobs).reverse();
+            const costs = dailyActivity.map(d => d.cost).reverse();
+
+            // Destroy existing chart if any
+            if (activityChart) {
+                activityChart.destroy();
+            }
+
+            activityChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: dates.map(d => {
+                        const date = new Date(d);
+                        return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                    }),
+                    datasets: [
+                        {
+                            label: 'Jobs',
+                            data: jobs,
+                            backgroundColor: 'rgba(79, 70, 229, 0.8)',
+                            borderRadius: 4,
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                stepSize: 1
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        async function loadAnalytics(days = 30) {
+            currentDays = days;
+            updatePeriodButtons(days);
+
+            try {
+                const response = await Auth.fetchWithAuth(`/api/analytics?days=${days}`);
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.detail || 'Failed to load analytics');
+                }
+
+                document.getElementById('loading').classList.add('hidden');
+                document.getElementById('dashboard').classList.remove('hidden');
+
+                // Summary
+                document.getElementById('total-outputs').textContent = data.summary.total_outputs;
+                document.getElementById('total-jobs').textContent = `${data.summary.total_jobs} jobs`;
+                document.getElementById('total-cost').textContent = `$${data.summary.total_cost.toFixed(2)}`;
+                document.getElementById('cost-per-piece').textContent = `$${data.summary.cost_per_piece.toFixed(4)} per piece`;
+
+                // Time savings
+                document.getElementById('hours-saved').textContent = `${data.time_savings.hours_saved}h`;
+                document.getElementById('days-saved').textContent = `${data.time_savings.days_saved} work days`;
+
+                // Cost savings
+                document.getElementById('cost-savings').textContent = `$${data.cost_savings.savings.toFixed(0)}`;
+                document.getElementById('roi-percentage').textContent = `${data.cost_savings.roi_percentage}% ROI`;
+                document.getElementById('roi-banner').textContent = `${data.cost_savings.roi_percentage}%`;
+                document.getElementById('savings-banner').textContent = `$${data.cost_savings.savings.toFixed(0)} saved vs outsourcing`;
+
+                // Quality
+                document.getElementById('avg-quality').textContent = `${data.quality.avg_score}/100`;
+                document.getElementById('quality-bar').style.width = `${data.quality.avg_score}%`;
+                document.getElementById('thumbs-rate').textContent = `${data.quality.thumbs_up_rate}%`;
+                document.getElementById('thumbs-bar').style.width = `${data.quality.thumbs_up_rate}%`;
+
+                // Feedback
+                document.getElementById('feedback-up').textContent = data.feedback.up;
+                document.getElementById('feedback-down').textContent = data.feedback.down;
+                document.getElementById('atoms-count').textContent = data.summary.atoms_extracted;
+
+                // Content by type
+                renderContentByType(data.content_by_type);
+
+                // Activity chart
+                renderActivityChart(data.daily_activity);
+
+            } catch (err) {
+                console.error('Failed to load analytics:', err);
+                document.getElementById('loading').innerHTML = `
+                    <p class="text-red-600">Failed to load analytics: ${err.message}</p>
+                `;
+            }
+        }
+
+        loadAnalytics(30);
+    </script>
+</body>
+</html>
