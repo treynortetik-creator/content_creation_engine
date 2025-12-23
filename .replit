@@ -1,4 +1,4 @@
-run = "pip install -r requirements.txt && python -m uvicorn app.main:app --host 0.0.0.0 --port 8000"
+run = "pip install -r requirements.txt && python -m uvicorn app.main:app --host 0.0.0.0 --port 5000"
 language = "python3"
 entrypoint = "app/main.py"
 
@@ -13,7 +13,7 @@ PYTHONPATH = "${REPL_HOME}"
 PYTHONUNBUFFERED = "1"
 
 [deployment]
-run = ["sh", "-c", "pip install -r requirements.txt && python -m uvicorn app.main:app --host 0.0.0.0 --port 8000"]
+run = ["sh", "-c", "pip install -r requirements.txt && python -m uvicorn app.main:app --host 0.0.0.0 --port 5000"]
 
 [packager]
 language = "python3"
