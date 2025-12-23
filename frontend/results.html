@@ -7,6 +7,75 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="/static/styles.css">
     <script src="/static/auth.js"></script>
+    <style>
+        /* Device Preview Styles */
+        .desktop-preview .post-preview-content {
+            max-width: 550px;
+            font-size: 14px;
+            line-height: 1.5;
+            background: white;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 16px;
+        }
+
+        .mobile-preview .post-preview-content {
+            max-width: 350px;
+            font-size: 13px;
+            line-height: 1.4;
+            background: white;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 12px;
+        }
+
+        .preview-btn.active {
+            background-color: #4f46e5;
+            color: white;
+        }
+
+        .preview-btn:not(.active) {
+            background-color: #f3f4f6;
+            color: #4b5563;
+        }
+
+        /* LinkedIn-like styling */
+        .linkedin-frame {
+            background: #f3f2ef;
+            padding: 12px;
+            border-radius: 8px;
+        }
+
+        .linkedin-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+
+        .linkedin-avatar {
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+        }
+
+        .linkedin-name {
+            font-weight: 600;
+            font-size: 14px;
+            color: #000;
+        }
+
+        .linkedin-title {
+            font-size: 12px;
+            color: #666;
+        }
+    </style>
 </head>
 <body class="bg-gray-50 min-h-screen">
     <!-- Navigation -->
@@ -244,6 +313,29 @@
             copyToClipboard(content);
         }
 
+        function setPreviewDevice(outputId, device) {
+            const container = document.getElementById(`preview-container-${outputId}`);
+            if (!container) return;
+
+            // Update container class
+            container.classList.remove('desktop-preview', 'mobile-preview');
+            container.classList.add(`${device}-preview`);
+
+            // Update button states
+            const desktopBtn = document.getElementById(`desktop-btn-${outputId}`);
+            const mobileBtn = document.getElementById(`mobile-btn-${outputId}`);
+
+            if (desktopBtn && mobileBtn) {
+                if (device === 'desktop') {
+                    desktopBtn.classList.add('active');
+                    mobileBtn.classList.remove('active');
+                } else {
+                    mobileBtn.classList.add('active');
+                    desktopBtn.classList.remove('active');
+                }
+            }
+        }
+
         // Store hook variations data globally
         window.hookVariationsData = {};
 
@@ -281,15 +373,38 @@
                     </div>
 
                     <div class="mt-4 pt-4 border-t border-blue-200">
-                        <div class="flex justify-between items-center mb-2">
-                            <span class="text-sm font-medium text-blue-800">Full Post Preview:</span>
+                        <div class="flex justify-between items-center mb-3">
+                            <div class="flex items-center gap-4">
+                                <span class="text-sm font-medium text-blue-800">Full Post Preview:</span>
+                                <div class="flex gap-2">
+                                    <button onclick="setPreviewDevice('${outputId}', 'desktop')"
+                                        class="preview-btn active px-3 py-1 rounded text-xs font-medium transition"
+                                        id="desktop-btn-${outputId}">
+                                        Desktop
+                                    </button>
+                                    <button onclick="setPreviewDevice('${outputId}', 'mobile')"
+                                        class="preview-btn px-3 py-1 rounded text-xs font-medium transition"
+                                        id="mobile-btn-${outputId}">
+                                        Mobile
+                                    </button>
+                                </div>
+                            </div>
                             <button onclick="copySelectedHook('${outputId}')"
                                 class="text-sm bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700 transition">
                                 Copy Selected
                             </button>
                         </div>
-                        <div class="bg-white p-4 rounded border border-blue-100 max-h-60 overflow-y-auto">
-                            <pre id="preview-${outputId}" class="whitespace-pre-wrap text-gray-700 text-sm font-sans">${escapeHtml(hookVariations.full_variations?.[0] || '')}</pre>
+                        <div id="preview-container-${outputId}" class="linkedin-frame desktop-preview">
+                            <div class="linkedin-header">
+                                <div class="linkedin-avatar">Y</div>
+                                <div>
+                                    <div class="linkedin-name">Your Name</div>
+                                    <div class="linkedin-title">Your Title | Company</div>
+                                </div>
+                            </div>
+                            <div class="post-preview-content">
+                                <pre id="preview-${outputId}" class="whitespace-pre-wrap text-gray-800 font-sans">${escapeHtml(hookVariations.full_variations?.[0] || '')}</pre>
+                            </div>
                         </div>
                     </div>
                 </div>
