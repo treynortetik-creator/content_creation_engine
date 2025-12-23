@@ -37,6 +37,9 @@
                 <button id="tab-text" class="px-4 py-2 border-b-2 border-transparent text-gray-500 hover:text-gray-700" onclick="showTab('text')">
                     Paste Text
                 </button>
+                <button id="tab-batch" class="px-4 py-2 border-b-2 border-transparent text-gray-500 hover:text-gray-700" onclick="showTab('batch')">
+                    Batch Upload
+                </button>
             </div>
         </div>
 
@@ -71,6 +74,29 @@
                 <input type="text" id="content-name"
                     class="mt-2 w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-indigo-500"
                     placeholder="Content name (optional)">
+            </div>
+
+            <!-- Batch Upload Section (hidden by default) -->
+            <div id="batch-section" class="hidden">
+                <div class="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-indigo-500 transition"
+                     id="batch-drop-zone">
+                    <input type="file" id="batch-file-input" class="hidden" multiple
+                           accept=".mp4,.mov,.avi,.webm,.mp3,.wav,.m4a,.pdf,.txt,.md,.docx,.png,.jpg,.jpeg,.gif,.webp">
+                    <div class="space-y-2">
+                        <svg class="mx-auto h-12 w-12 text-gray-400" stroke="currentColor" fill="none" viewBox="0 0 48 48">
+                            <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                        </svg>
+                        <p class="text-gray-600">
+                            <label for="batch-file-input" class="text-indigo-600 cursor-pointer hover:underline">Select multiple files</label>
+                            or drag and drop
+                        </p>
+                        <p class="text-sm text-gray-500">Up to 10 files at once (max 100MB each)</p>
+                    </div>
+                </div>
+                <div id="batch-files-list" class="mt-4 space-y-2 hidden">
+                    <h4 class="font-medium text-gray-700">Selected Files:</h4>
+                    <div id="batch-files-container"></div>
+                </div>
             </div>
 
             <!-- Target Personas (Multi-select) -->
@@ -168,6 +194,7 @@
 
         let uploadMode = 'file';
         let selectedFile = null;
+        let selectedBatchFiles = [];
         let availablePersonas = [];
 
         // Load personas from API
@@ -214,18 +241,17 @@
 
         function showTab(tab) {
             uploadMode = tab;
-            document.getElementById('tab-file').classList.toggle('border-indigo-600', tab === 'file');
-            document.getElementById('tab-file').classList.toggle('text-indigo-600', tab === 'file');
-            document.getElementById('tab-file').classList.toggle('border-transparent', tab !== 'file');
-            document.getElementById('tab-file').classList.toggle('text-gray-500', tab !== 'file');
-
-            document.getElementById('tab-text').classList.toggle('border-indigo-600', tab === 'text');
-            document.getElementById('tab-text').classList.toggle('text-indigo-600', tab === 'text');
-            document.getElementById('tab-text').classList.toggle('border-transparent', tab !== 'text');
-            document.getElementById('tab-text').classList.toggle('text-gray-500', tab !== 'text');
+            ['file', 'text', 'batch'].forEach(t => {
+                const tabBtn = document.getElementById(`tab-${t}`);
+                tabBtn.classList.toggle('border-indigo-600', tab === t);
+                tabBtn.classList.toggle('text-indigo-600', tab === t);
+                tabBtn.classList.toggle('border-transparent', tab !== t);
+                tabBtn.classList.toggle('text-gray-500', tab !== t);
+            });
 
             document.getElementById('file-section').classList.toggle('hidden', tab !== 'file');
             document.getElementById('text-section').classList.toggle('hidden', tab !== 'text');
+            document.getElementById('batch-section').classList.toggle('hidden', tab !== 'batch');
         }
 
         // File upload handling
@@ -264,6 +290,68 @@
             document.getElementById('file-name').textContent = `Selected: ${file.name} (${sizeMB} MB)`;
         }
 
+        // Batch file upload handling
+        const batchDropZone = document.getElementById('batch-drop-zone');
+        const batchFileInput = document.getElementById('batch-file-input');
+
+        batchDropZone.addEventListener('click', () => batchFileInput.click());
+
+        batchDropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            batchDropZone.classList.add('border-indigo-500', 'bg-indigo-50');
+        });
+
+        batchDropZone.addEventListener('dragleave', () => {
+            batchDropZone.classList.remove('border-indigo-500', 'bg-indigo-50');
+        });
+
+        batchDropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            batchDropZone.classList.remove('border-indigo-500', 'bg-indigo-50');
+            handleBatchFiles(e.dataTransfer.files);
+        });
+
+        batchFileInput.addEventListener('change', (e) => {
+            if (e.target.files.length) {
+                handleBatchFiles(e.target.files);
+            }
+        });
+
+        function handleBatchFiles(fileList) {
+            selectedBatchFiles = Array.from(fileList).slice(0, 10);  // Max 10 files
+            renderBatchFilesList();
+        }
+
+        function renderBatchFilesList() {
+            const container = document.getElementById('batch-files-container');
+            const listDiv = document.getElementById('batch-files-list');
+
+            if (selectedBatchFiles.length === 0) {
+                listDiv.classList.add('hidden');
+                return;
+            }
+
+            listDiv.classList.remove('hidden');
+            container.innerHTML = selectedBatchFiles.map((file, idx) => {
+                const sizeMB = (file.size / (1024 * 1024)).toFixed(2);
+                return `
+                    <div class="flex items-center justify-between p-2 bg-gray-50 rounded">
+                        <span class="text-sm text-gray-700">${file.name} (${sizeMB} MB)</span>
+                        <button type="button" onclick="removeBatchFile(${idx})" class="text-red-500 hover:text-red-700">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                            </svg>
+                        </button>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function removeBatchFile(index) {
+            selectedBatchFiles.splice(index, 1);
+            renderBatchFilesList();
+        }
+
         // Form submission
         document.getElementById('upload-form').addEventListener('submit', async (e) => {
             e.preventDefault();
@@ -300,6 +388,12 @@
 
             if (uploadMode === 'text' && !document.getElementById('text-content').value.trim()) {
                 errorDiv.textContent = 'Please enter some content';
+                errorDiv.classList.remove('hidden');
+                return;
+            }
+
+            if (uploadMode === 'batch' && selectedBatchFiles.length === 0) {
+                errorDiv.textContent = 'Please select at least one file for batch processing';
                 errorDiv.classList.remove('hidden');
                 return;
             }
@@ -354,7 +448,7 @@
                         method: 'POST',
                         body: formData
                     });
-                } else {
+                } else if (uploadMode === 'text') {
                     const formData = new FormData();
                     formData.append('content', document.getElementById('text-content').value);
                     formData.append('target_personas', JSON.stringify(selectedPersonas));
@@ -370,12 +464,32 @@
                         method: 'POST',
                         body: formData
                     });
+                } else if (uploadMode === 'batch') {
+                    submitBtn.textContent = 'Uploading batch...';
+                    const formData = new FormData();
+                    selectedBatchFiles.forEach(file => {
+                        formData.append('files', file);
+                    });
+                    formData.append('target_personas', JSON.stringify(selectedPersonas));
+                    formData.append('asset_types', JSON.stringify(assetTypes));
+                    formData.append('asset_quantities', JSON.stringify(assetQuantities));
+
+                    response = await Auth.fetchWithAuth('/api/batch/upload', {
+                        method: 'POST',
+                        body: formData
+                    });
                 }
 
                 const data = await response.json();
 
                 if (response.ok) {
-                    window.location.href = `/status.html?job_id=${data.job_id}`;
+                    if (uploadMode === 'batch') {
+                        // For batch, show a summary and redirect to library
+                        alert(`Batch created!\n\n${data.total_jobs} files are now processing.\nBatch ID: ${data.batch_id}`);
+                        window.location.href = `/library.html`;
+                    } else {
+                        window.location.href = `/status.html?job_id=${data.job_id}`;
+                    }
                 } else {
                     throw new Error(data.detail || 'Upload failed');
                 }

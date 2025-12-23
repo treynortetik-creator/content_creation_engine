@@ -44,6 +44,9 @@
                 <button class="tab-btn px-1 pb-4 border-b-2 border-transparent text-gray-500 hover:text-gray-700 whitespace-nowrap" data-tab="personas">
                     Personas
                 </button>
+                <button class="tab-btn px-1 pb-4 border-b-2 border-transparent text-gray-500 hover:text-gray-700 whitespace-nowrap" data-tab="integrations">
+                    Integrations
+                </button>
             </div>
         </div>
 
@@ -197,9 +200,198 @@
         </div>
 
         <!-- Personas Tab -->
-        <div id="personas-tab" class="hidden">
-            <div id="personas-list" class="space-y-4">
-                <!-- Personas will be loaded here -->
+        <div id="personas-tab" class="hidden space-y-6">
+            <!-- Create Custom Persona -->
+            <div class="bg-white rounded-lg shadow-sm p-6">
+                <h2 class="text-xl font-semibold mb-2">Create Custom Persona</h2>
+                <p class="text-gray-600 mb-6">
+                    Build a detailed audience profile for more targeted content generation.
+                </p>
+
+                <div class="space-y-4">
+                    <div class="grid md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Persona Title *</label>
+                            <input type="text" id="persona-title"
+                                class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-indigo-500"
+                                placeholder="e.g., VP of Marketing at B2B SaaS">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Company Size</label>
+                            <input type="text" id="persona-company-size"
+                                class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-indigo-500"
+                                placeholder="e.g., 100-500 employees">
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Description</label>
+                        <textarea id="persona-description" rows="2"
+                            class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-indigo-500"
+                            placeholder="Brief description of this audience..."></textarea>
+                    </div>
+
+                    <div class="grid md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Pain Points (one per line)</label>
+                            <textarea id="persona-pain-points" rows="3"
+                                class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-indigo-500"
+                                placeholder="Limited budget&#10;Time constraints&#10;Team buy-in challenges"></textarea>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Priorities (one per line)</label>
+                            <textarea id="persona-priorities" rows="3"
+                                class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-indigo-500"
+                                placeholder="ROI demonstration&#10;Quick implementation&#10;Scalability"></textarea>
+                        </div>
+                    </div>
+
+                    <div class="grid md:grid-cols-4 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Language Level</label>
+                            <select id="persona-language"
+                                class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-indigo-500">
+                                <option value="Executive">Executive (high-level)</option>
+                                <option value="Professional" selected>Professional</option>
+                                <option value="Technical">Technical</option>
+                                <option value="Casual">Casual/Friendly</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Tone</label>
+                            <select id="persona-tone"
+                                class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-indigo-500">
+                                <option value="Professional" selected>Professional</option>
+                                <option value="Confident">Confident</option>
+                                <option value="Empathetic">Empathetic</option>
+                                <option value="Educational">Educational</option>
+                                <option value="Urgent">Urgent</option>
+                                <option value="Casual">Casual</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Length Preference</label>
+                            <select id="persona-length"
+                                class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-indigo-500">
+                                <option value="Short">Short (time-constrained)</option>
+                                <option value="Medium" selected>Medium</option>
+                                <option value="Long">Long (detail-oriented)</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Data Density</label>
+                            <select id="persona-data-density"
+                                class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-indigo-500">
+                                <option value="Low">Low (stories over stats)</option>
+                                <option value="Moderate" selected>Moderate</option>
+                                <option value="High">High (metrics-focused)</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <button onclick="createCustomPersona()"
+                        class="bg-indigo-600 text-white px-6 py-2 rounded-lg font-semibold hover:bg-indigo-700 transition">
+                        Create Persona
+                    </button>
+                </div>
+            </div>
+
+            <!-- My Custom Personas -->
+            <div class="bg-white rounded-lg shadow-sm p-6">
+                <h3 class="text-lg font-semibold mb-4">My Custom Personas</h3>
+                <div id="custom-personas-list" class="space-y-4">
+                    <p class="text-gray-500 text-center py-4">Loading custom personas...</p>
+                </div>
+            </div>
+
+            <!-- Preset Personas -->
+            <div class="bg-white rounded-lg shadow-sm p-6">
+                <h3 class="text-lg font-semibold mb-4">Preset Personas</h3>
+                <div id="personas-list" class="space-y-4">
+                    <!-- Preset personas will be loaded here -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Integrations Tab -->
+        <div id="integrations-tab" class="hidden space-y-6">
+            <!-- Add Integration -->
+            <div class="bg-white rounded-lg shadow-sm p-6">
+                <h2 class="text-xl font-semibold mb-2">Add Integration</h2>
+                <p class="text-gray-600 mb-6">
+                    Connect to Zapier, Make.com, or other webhook services to auto-distribute your content.
+                </p>
+
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Webhook URL</label>
+                        <input type="url" id="webhook-url"
+                            class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                            placeholder="https://hooks.zapier.com/hooks/catch/...">
+                        <p class="text-sm text-gray-500 mt-1">Paste your Zapier, Make.com, or n8n webhook URL</p>
+                    </div>
+
+                    <div class="grid md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Integration Name</label>
+                            <input type="text" id="webhook-name"
+                                class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                                placeholder="e.g., Auto-post to LinkedIn">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Trigger Event</label>
+                            <select id="webhook-event"
+                                class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+                                <option value="job_complete">When processing completes (recommended)</option>
+                                <option value="output_generated">For each output generated</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <button onclick="addWebhook()"
+                        class="bg-indigo-600 text-white px-6 py-2 rounded-lg font-semibold hover:bg-indigo-700 transition">
+                        Add Integration
+                    </button>
+                </div>
+            </div>
+
+            <!-- Active Integrations -->
+            <div class="bg-white rounded-lg shadow-sm p-6">
+                <h3 class="text-lg font-semibold mb-4">Active Integrations</h3>
+                <div id="webhooks-list" class="space-y-4">
+                    <p class="text-gray-500 text-center py-4">Loading integrations...</p>
+                </div>
+            </div>
+
+            <!-- Popular Templates -->
+            <div class="bg-white rounded-lg shadow-sm p-6">
+                <h3 class="text-lg font-semibold mb-4">Popular Zap Templates</h3>
+                <p class="text-gray-600 mb-4">
+                    Click a template to create a Zap in Zapier. Once created, paste the webhook URL above.
+                </p>
+                <div id="templates-list" class="grid md:grid-cols-2 gap-4">
+                    <!-- Templates loaded dynamically -->
+                </div>
+            </div>
+
+            <!-- Webhook Data Preview -->
+            <div class="bg-gray-50 rounded-lg p-4">
+                <h4 class="font-medium text-gray-700 mb-2">What data is sent?</h4>
+                <p class="text-sm text-gray-600 mb-2">When a job completes, we send all generated content:</p>
+                <pre class="text-xs bg-gray-800 text-green-400 rounded p-3 overflow-x-auto">{
+  "event": "job_complete",
+  "data": {
+    "job_id": "abc123",
+    "filename": "webinar.mp4",
+    "outputs": [
+      {
+        "content_type": "linkedin",
+        "content": "Your generated post...",
+        "quality_score": 85
+      }
+    ]
+  }
+}</pre>
             </div>
         </div>
     </div>
@@ -233,6 +425,7 @@
                 document.getElementById('memory-tab').classList.toggle('hidden', tab !== 'memory');
                 document.getElementById('voice-test-tab').classList.toggle('hidden', tab !== 'voice-test');
                 document.getElementById('personas-tab').classList.toggle('hidden', tab !== 'personas');
+                document.getElementById('integrations-tab').classList.toggle('hidden', tab !== 'integrations');
             });
         });
 
@@ -578,9 +771,384 @@
             }
         }
 
+        // ==================== Custom Persona Functions ====================
+        async function loadCustomPersonas() {
+            try {
+                const response = await Auth.fetchWithAuth('/api/personas/custom');
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.detail || 'Failed to load custom personas');
+                }
+
+                renderCustomPersonas(data.custom_personas || []);
+            } catch (err) {
+                console.error('Failed to load custom personas:', err);
+                document.getElementById('custom-personas-list').innerHTML =
+                    `<p class="text-red-500 text-center py-4">Failed to load: ${err.message}</p>`;
+            }
+        }
+
+        function renderCustomPersonas(customPersonas) {
+            const container = document.getElementById('custom-personas-list');
+
+            if (customPersonas.length === 0) {
+                container.innerHTML = `
+                    <div class="text-center py-8 text-gray-500">
+                        <p class="text-lg mb-2">No custom personas yet</p>
+                        <p class="text-sm">Create one above to get started.</p>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = customPersonas.map(persona => {
+                const painPoints = persona.pain_points || [];
+                const priorities = persona.priorities || [];
+                const prefs = persona.content_preferences || {};
+
+                return `
+                    <div class="bg-gray-50 rounded-lg p-4">
+                        <div class="flex justify-between items-start mb-3">
+                            <div>
+                                <h4 class="font-semibold text-gray-800">${escapeHtml(persona.title)}</h4>
+                                <p class="text-sm text-gray-500">${persona.company_size || ''}</p>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <span class="px-2 py-1 bg-indigo-100 text-indigo-600 rounded text-xs">Custom</span>
+                                <button onclick="deleteCustomPersona(${persona.id})"
+                                    class="text-red-500 hover:text-red-700 p-1">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                                    </svg>
+                                </button>
+                            </div>
+                        </div>
+                        ${persona.description ? `<p class="text-sm text-gray-600 mb-3">${escapeHtml(persona.description)}</p>` : ''}
+                        <div class="grid md:grid-cols-2 gap-4 text-sm">
+                            <div>
+                                <p class="font-medium text-gray-700 mb-1">Pain Points</p>
+                                <ul class="list-disc list-inside text-gray-600 space-y-1">
+                                    ${painPoints.map(p => `<li>${escapeHtml(p)}</li>`).join('') || '<li class="text-gray-400">None specified</li>'}
+                                </ul>
+                            </div>
+                            <div>
+                                <p class="font-medium text-gray-700 mb-1">Priorities</p>
+                                <ul class="list-disc list-inside text-gray-600 space-y-1">
+                                    ${priorities.map(p => `<li>${escapeHtml(p)}</li>`).join('') || '<li class="text-gray-400">None specified</li>'}
+                                </ul>
+                            </div>
+                        </div>
+                        <div class="mt-3 pt-3 border-t text-xs text-gray-500">
+                            <span class="font-medium">Language:</span> ${persona.language_level || 'Professional'} |
+                            <span class="font-medium">Tone:</span> ${prefs.tone || 'Professional'} |
+                            <span class="font-medium">Length:</span> ${prefs.length || 'Medium'}
+                        </div>
+                        <div class="mt-2">
+                            <button onclick="testPersona('${persona.persona_id}')"
+                                class="text-indigo-600 hover:underline text-sm font-medium">
+                                Test this persona
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        async function createCustomPersona() {
+            const title = document.getElementById('persona-title').value.trim();
+            const description = document.getElementById('persona-description').value.trim();
+            const companySize = document.getElementById('persona-company-size').value.trim();
+            const painPointsRaw = document.getElementById('persona-pain-points').value.trim();
+            const prioritiesRaw = document.getElementById('persona-priorities').value.trim();
+            const languageLevel = document.getElementById('persona-language').value;
+            const tone = document.getElementById('persona-tone').value;
+            const lengthPref = document.getElementById('persona-length').value;
+            const dataDensity = document.getElementById('persona-data-density').value;
+
+            if (!title || title.length < 3) {
+                alert('Please enter a persona title (at least 3 characters)');
+                return;
+            }
+
+            // Parse pain points and priorities (one per line)
+            const painPoints = painPointsRaw.split('\n').map(s => s.trim()).filter(s => s.length > 0);
+            const priorities = prioritiesRaw.split('\n').map(s => s.trim()).filter(s => s.length > 0);
+
+            try {
+                const response = await Auth.fetchWithAuth('/api/personas/custom', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        title,
+                        description: description || null,
+                        company_size: companySize || null,
+                        pain_points: painPoints,
+                        priorities: priorities,
+                        language_level: languageLevel,
+                        tone,
+                        length_preference: lengthPref,
+                        data_density: dataDensity
+                    })
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.detail || 'Failed to create persona');
+                }
+
+                // Clear form
+                document.getElementById('persona-title').value = '';
+                document.getElementById('persona-description').value = '';
+                document.getElementById('persona-company-size').value = '';
+                document.getElementById('persona-pain-points').value = '';
+                document.getElementById('persona-priorities').value = '';
+
+                // Show success
+                const toast = document.getElementById('copy-toast');
+                toast.textContent = 'Persona created!';
+                toast.classList.remove('hidden');
+                setTimeout(() => toast.classList.add('hidden'), 2000);
+
+                // Reload
+                await loadCustomPersonas();
+
+            } catch (err) {
+                alert('Failed to create persona: ' + err.message);
+            }
+        }
+
+        async function deleteCustomPersona(personaId) {
+            if (!confirm('Delete this custom persona?')) return;
+
+            try {
+                const response = await Auth.fetchWithAuth(`/api/personas/custom/${personaId}`, {
+                    method: 'DELETE'
+                });
+
+                if (!response.ok) {
+                    const data = await response.json();
+                    throw new Error(data.detail || 'Failed to delete persona');
+                }
+
+                await loadCustomPersonas();
+            } catch (err) {
+                alert('Failed to delete: ' + err.message);
+            }
+        }
+
+        // ==================== Webhook Functions ====================
+        async function loadWebhooks() {
+            try {
+                const response = await Auth.fetchWithAuth('/api/integrations/zapier/webhooks');
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.detail || 'Failed to load webhooks');
+                }
+
+                renderWebhooks(data.webhooks || []);
+            } catch (err) {
+                console.error('Failed to load webhooks:', err);
+                document.getElementById('webhooks-list').innerHTML =
+                    `<p class="text-red-500 text-center py-4">Failed to load: ${err.message}</p>`;
+            }
+        }
+
+        function renderWebhooks(webhooks) {
+            const container = document.getElementById('webhooks-list');
+
+            if (webhooks.length === 0) {
+                container.innerHTML = `
+                    <div class="text-center py-8 text-gray-500">
+                        <p class="text-lg mb-2">No integrations yet</p>
+                        <p class="text-sm">Add a webhook above to auto-distribute your content.</p>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = webhooks.map(webhook => `
+                <div class="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                    <div class="flex items-center gap-4">
+                        <div class="w-10 h-10 rounded-full ${webhook.enabled ? 'bg-green-100' : 'bg-gray-200'} flex items-center justify-center">
+                            <svg class="w-5 h-5 ${webhook.enabled ? 'text-green-600' : 'text-gray-400'}" fill="currentColor" viewBox="0 0 20 20">
+                                <path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3zM6 8a2 2 0 11-4 0 2 2 0 014 0zM16 18v-3a5.972 5.972 0 00-.75-2.906A3.005 3.005 0 0119 15v3h-3zM4.75 12.094A5.973 5.973 0 004 15v3H1v-3a3 3 0 013.75-2.906z"/>
+                            </svg>
+                        </div>
+                        <div>
+                            <div class="font-medium text-gray-800">${escapeHtml(webhook.webhook_name)}</div>
+                            <div class="text-sm text-gray-500">
+                                ${webhook.trigger_event === 'job_complete' ? 'On job complete' : 'Per output'}
+                                ${webhook.last_triggered_at ? ` • Last: ${new Date(webhook.last_triggered_at).toLocaleDateString()}` : ''}
+                            </div>
+                            ${webhook.last_error ? `<div class="text-xs text-red-500 mt-1">${escapeHtml(webhook.last_error)}</div>` : ''}
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <button onclick="testWebhook(${webhook.id})"
+                            class="px-3 py-1 text-sm text-indigo-600 hover:bg-indigo-50 rounded">
+                            Test
+                        </button>
+                        <button onclick="toggleWebhook(${webhook.id})"
+                            class="px-3 py-1 text-sm ${webhook.enabled ? 'text-yellow-600 hover:bg-yellow-50' : 'text-green-600 hover:bg-green-50'} rounded">
+                            ${webhook.enabled ? 'Disable' : 'Enable'}
+                        </button>
+                        <button onclick="deleteWebhook(${webhook.id})"
+                            class="px-3 py-1 text-sm text-red-600 hover:bg-red-50 rounded">
+                            Delete
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        async function addWebhook() {
+            const url = document.getElementById('webhook-url').value.trim();
+            const name = document.getElementById('webhook-name').value.trim();
+            const event = document.getElementById('webhook-event').value;
+
+            if (!url) {
+                alert('Please enter a webhook URL');
+                return;
+            }
+            if (!name) {
+                alert('Please enter an integration name');
+                return;
+            }
+
+            try {
+                const response = await Auth.fetchWithAuth('/api/integrations/zapier/webhooks', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        webhook_url: url,
+                        webhook_name: name,
+                        trigger_event: event
+                    })
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.detail || 'Failed to add webhook');
+                }
+
+                // Clear inputs
+                document.getElementById('webhook-url').value = '';
+                document.getElementById('webhook-name').value = '';
+
+                // Show success
+                const toast = document.getElementById('copy-toast');
+                toast.textContent = 'Integration added!';
+                toast.classList.remove('hidden');
+                setTimeout(() => toast.classList.add('hidden'), 2000);
+
+                // Reload webhooks
+                await loadWebhooks();
+
+            } catch (err) {
+                alert('Failed to add webhook: ' + err.message);
+            }
+        }
+
+        async function testWebhook(webhookId) {
+            try {
+                const response = await Auth.fetchWithAuth(`/api/integrations/zapier/webhooks/${webhookId}/test`, {
+                    method: 'POST'
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    alert('Test successful! Check your integration for the test data.');
+                } else {
+                    alert('Test failed: ' + data.message);
+                }
+            } catch (err) {
+                alert('Test failed: ' + err.message);
+            }
+        }
+
+        async function toggleWebhook(webhookId) {
+            try {
+                const response = await Auth.fetchWithAuth(`/api/integrations/zapier/webhooks/${webhookId}/toggle`, {
+                    method: 'PUT'
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.detail || 'Failed to toggle webhook');
+                }
+
+                await loadWebhooks();
+            } catch (err) {
+                alert('Failed to toggle: ' + err.message);
+            }
+        }
+
+        async function deleteWebhook(webhookId) {
+            if (!confirm('Delete this integration?')) return;
+
+            try {
+                const response = await Auth.fetchWithAuth(`/api/integrations/zapier/webhooks/${webhookId}`, {
+                    method: 'DELETE'
+                });
+
+                if (!response.ok) {
+                    const data = await response.json();
+                    throw new Error(data.detail || 'Failed to delete webhook');
+                }
+
+                await loadWebhooks();
+            } catch (err) {
+                alert('Failed to delete: ' + err.message);
+            }
+        }
+
+        async function loadZapierTemplates() {
+            try {
+                const response = await Auth.fetchWithAuth('/api/integrations/zapier/templates');
+                const data = await response.json();
+
+                const container = document.getElementById('templates-list');
+                const iconClasses = {
+                    'linkedin': 'text-blue-700',
+                    'google-drive': 'text-green-600',
+                    'notion': 'text-gray-800',
+                    'slack': 'text-purple-600',
+                    'airtable': 'text-yellow-600',
+                    'mailchimp': 'text-yellow-500'
+                };
+
+                container.innerHTML = data.templates.map(t => `
+                    <a href="${t.zap_url}" target="_blank"
+                        class="flex items-center gap-3 p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition">
+                        <div class="w-10 h-10 rounded-lg bg-white shadow-sm flex items-center justify-center ${iconClasses[t.icon] || 'text-gray-600'}">
+                            <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+                                <path d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/>
+                            </svg>
+                        </div>
+                        <div>
+                            <div class="font-medium text-gray-800">${t.name}</div>
+                            <div class="text-sm text-gray-500">${t.description}</div>
+                        </div>
+                    </a>
+                `).join('');
+
+            } catch (err) {
+                console.error('Failed to load templates:', err);
+            }
+        }
+
         // Load data on page load
         loadPersonas();
         loadMemoryRules();
+        loadCustomPersonas();
+        loadWebhooks();
+        loadZapierTemplates();
     </script>
 </body>
 </html>

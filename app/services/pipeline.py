@@ -22,6 +22,7 @@ from app.services.scoring import batch_score_content
 from app.services.hook_generator import generate_hook_variations, split_hook_and_body, combine_hooks_with_body
 from app.api.brand_voice import get_user_brand_context
 from app.utils.error_messages import format_pipeline_error, detect_error_type, get_error_message
+from app.services.zapier import trigger_job_complete_webhook
 
 settings = get_settings()
 
@@ -477,6 +478,13 @@ async def process_job(job_id: str):
                 (job_id,)
             )
             await db.commit()
+
+        # Trigger Zapier webhooks (if any configured)
+        try:
+            await trigger_job_complete_webhook(job_id, user_id)
+        except Exception as webhook_error:
+            # Don't fail job if webhook fails
+            print(f"Webhook trigger failed for job {job_id}: {webhook_error}")
 
     except Exception as e:
         # Log detailed error for debugging

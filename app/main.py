@@ -13,7 +13,7 @@ from slowapi.errors import RateLimitExceeded
 
 from app.config import get_settings
 from app.database import init_db
-from app.api import upload, jobs, library, admin, auth, personas, brand_voice, memory, swipe, feedback, analytics, export
+from app.api import upload, jobs, library, admin, auth, personas, brand_voice, memory, swipe, feedback, analytics, export, integrations, batch, remix, calendar
 from app.api import admin_views
 
 settings = get_settings()
@@ -90,6 +90,10 @@ app.include_router(swipe.router, prefix="/api", tags=["swipe-file"])
 app.include_router(feedback.router, prefix="/api", tags=["feedback"])
 app.include_router(analytics.router, prefix="/api", tags=["analytics"])
 app.include_router(export.router, prefix="/api", tags=["export"])
+app.include_router(integrations.router, prefix="/api", tags=["integrations"])
+app.include_router(batch.router, prefix="/api", tags=["batch"])
+app.include_router(remix.router, prefix="/api", tags=["remix"])
+app.include_router(calendar.router, prefix="/api", tags=["calendar"])
 # Register admin views FIRST so HTML pages take priority over API responses
 app.include_router(admin_views.router, prefix="/admin", tags=["admin-views"])
 app.include_router(admin.router, prefix="/api/admin", tags=["admin-api"])
@@ -149,6 +153,18 @@ async def serve_settings():
 async def serve_brand_voice():
     """Serve brand voice configuration page."""
     return FileResponse(frontend_path / "brand-voice.html")
+
+
+@app.get("/remix.html")
+async def serve_remix():
+    """Serve remix page."""
+    return FileResponse(frontend_path / "remix.html")
+
+
+@app.get("/calendar.html")
+async def serve_calendar():
+    """Serve calendar page."""
+    return FileResponse(frontend_path / "calendar.html")
 
 
 @app.get("/")

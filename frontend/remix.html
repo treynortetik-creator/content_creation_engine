@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Remix - ContentMultiplier</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="/static/styles.css">
+    <script src="/static/auth.js"></script>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <!-- Navigation -->
+    <nav class="bg-white shadow-sm border-b">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16">
+                <div class="flex items-center">
+                    <a href="/" class="text-xl font-bold text-indigo-600">ContentMultiplier</a>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <a href="/upload.html" class="text-gray-600 hover:text-gray-900">Upload</a>
+                    <a href="/library.html" class="text-gray-600 hover:text-gray-900">Library</a>
+                    <a href="/remix.html" class="text-indigo-600 font-medium">Remix</a>
+                    <div id="navbar-user" class="flex items-center"></div>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <div class="max-w-6xl mx-auto px-4 py-8">
+        <!-- Header -->
+        <div class="mb-8">
+            <h1 class="text-3xl font-bold">Smart Content Remix</h1>
+            <p class="text-gray-600 mt-2">
+                Combine atoms from your library to generate fresh content. Let AI suggest interesting combinations or select your own.
+            </p>
+        </div>
+
+        <div class="grid lg:grid-cols-3 gap-8">
+            <!-- Left: AI Suggestions -->
+            <div class="lg:col-span-2 space-y-6">
+                <!-- AI Suggestions -->
+                <div class="bg-white rounded-lg shadow-sm p-6">
+                    <div class="flex justify-between items-center mb-4">
+                        <h2 class="text-lg font-semibold">AI Suggestions</h2>
+                        <button onclick="loadSuggestions()" class="text-indigo-600 hover:text-indigo-800 text-sm font-medium">
+                            Refresh Suggestions
+                        </button>
+                    </div>
+                    <div id="suggestions-container">
+                        <div class="text-center py-8 text-gray-500">
+                            <div class="animate-spin h-8 w-8 border-4 border-indigo-600 border-t-transparent rounded-full mx-auto"></div>
+                            <p class="mt-4">Analyzing your library...</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Your Library Atoms -->
+                <div class="bg-white rounded-lg shadow-sm p-6">
+                    <h2 class="text-lg font-semibold mb-4">Your Library</h2>
+                    <p class="text-sm text-gray-600 mb-4">Select atoms to remix into new content</p>
+                    <div id="library-container" class="space-y-3 max-h-96 overflow-y-auto">
+                        <p class="text-gray-500 text-center py-4">Loading library...</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right: Selection & Generate -->
+            <div class="space-y-6">
+                <!-- Selected Atoms -->
+                <div class="bg-white rounded-lg shadow-sm p-6 sticky top-4">
+                    <h3 class="font-semibold mb-4">Selected Atoms</h3>
+                    <div id="selected-atoms" class="space-y-2 mb-4">
+                        <p class="text-gray-500 text-sm">Select atoms from the left to add them here</p>
+                    </div>
+
+                    <!-- Generation Options -->
+                    <div class="border-t pt-4 mt-4 space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Content Type</label>
+                            <select id="content-type"
+                                class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-indigo-500">
+                                <option value="linkedin">LinkedIn Post</option>
+                                <option value="blog">Blog Post</option>
+                                <option value="email">Email</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Theme/Angle (optional)</label>
+                            <input type="text" id="remix-theme"
+                                class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-indigo-500"
+                                placeholder="e.g., The hidden cost of...">
+                        </div>
+
+                        <button onclick="generateRemix()" id="generate-btn"
+                            class="w-full bg-indigo-600 text-white py-3 rounded-lg font-semibold hover:bg-indigo-700 transition disabled:opacity-50 disabled:cursor-not-allowed">
+                            Generate Remix
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Recent Remixes -->
+                <div class="bg-white rounded-lg shadow-sm p-6">
+                    <h3 class="font-semibold mb-4">Recent Remixes</h3>
+                    <div id="recent-remixes" class="space-y-2">
+                        <p class="text-gray-500 text-sm">No remixes yet</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast -->
+    <div id="toast" class="fixed bottom-4 right-4 bg-gray-800 text-white px-4 py-2 rounded-lg shadow-lg hidden"></div>
+
+    <script>
+        // Require authentication
+        if (!Auth.requireAuth()) {
+            // Will redirect to login
+        }
+
+        let libraryAtoms = [];
+        let selectedAtomIds = new Set();
+
+        async function loadSuggestions() {
+            const container = document.getElementById('suggestions-container');
+            container.innerHTML = `
+                <div class="text-center py-8 text-gray-500">
+                    <div class="animate-spin h-8 w-8 border-4 border-indigo-600 border-t-transparent rounded-full mx-auto"></div>
+                    <p class="mt-4">Analyzing your library...</p>
+                </div>
+            `;
+
+            try {
+                const response = await Auth.fetchWithAuth('/api/remix/suggest', {
+                    method: 'POST'
+                });
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.detail || 'Failed to load suggestions');
+                }
+
+                if (!data.suggestions || data.suggestions.length === 0) {
+                    container.innerHTML = `
+                        <div class="text-center py-8 text-gray-500">
+                            <p>Add more atoms to your library to get AI suggestions.</p>
+                            <a href="/library.html" class="text-indigo-600 hover:underline mt-2 inline-block">Go to Library</a>
+                        </div>
+                    `;
+                    return;
+                }
+
+                container.innerHTML = data.suggestions.map((suggestion, idx) => `
+                    <div class="p-4 bg-gradient-to-r from-indigo-50 to-purple-50 rounded-lg mb-4">
+                        <div class="flex justify-between items-start mb-2">
+                            <h4 class="font-medium text-gray-900">${suggestion.theme}</h4>
+                            <button onclick="useSuggestion(${idx})"
+                                class="text-sm bg-indigo-600 text-white px-3 py-1 rounded hover:bg-indigo-700">
+                                Use This
+                            </button>
+                        </div>
+                        <p class="text-sm text-gray-600 mb-3">${suggestion.rationale}</p>
+                        <div class="flex flex-wrap gap-2">
+                            ${suggestion.atoms.map(a => `
+                                <span class="px-2 py-1 bg-white rounded text-xs text-gray-600 border">
+                                    ${a.type}: ${a.content.substring(0, 50)}...
+                                </span>
+                            `).join('')}
+                        </div>
+                    </div>
+                `).join('');
+
+                // Store suggestions for use
+                window.suggestions = data.suggestions;
+
+            } catch (err) {
+                container.innerHTML = `
+                    <div class="text-center py-8 text-red-500">
+                        <p>Failed to load suggestions: ${err.message}</p>
+                        <button onclick="loadSuggestions()" class="text-indigo-600 hover:underline mt-2">Try again</button>
+                    </div>
+                `;
+            }
+        }
+
+        function useSuggestion(idx) {
+            const suggestion = window.suggestions[idx];
+            if (!suggestion) return;
+
+            // Clear current selection
+            selectedAtomIds.clear();
+
+            // Add suggestion atoms
+            suggestion.atoms.forEach(a => {
+                selectedAtomIds.add(a.id);
+            });
+
+            // Set theme
+            document.getElementById('remix-theme').value = suggestion.theme;
+
+            // Update UI
+            renderSelectedAtoms();
+            renderLibrary();
+        }
+
+        async function loadLibrary() {
+            try {
+                const response = await Auth.fetchWithAuth('/api/library');
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.detail || 'Failed to load library');
+                }
+
+                libraryAtoms = data.entries || [];
+                renderLibrary();
+            } catch (err) {
+                document.getElementById('library-container').innerHTML =
+                    `<p class="text-red-500 text-center py-4">Failed to load library: ${err.message}</p>`;
+            }
+        }
+
+        function renderLibrary() {
+            const container = document.getElementById('library-container');
+
+            if (libraryAtoms.length === 0) {
+                container.innerHTML = `
+                    <div class="text-center py-8 text-gray-500">
+                        <p>No atoms in your library yet.</p>
+                        <a href="/upload.html" class="text-indigo-600 hover:underline mt-2 inline-block">Upload content</a>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = libraryAtoms.map(atom => {
+                const isSelected = selectedAtomIds.has(atom.id);
+                return `
+                    <div class="p-3 border rounded-lg cursor-pointer transition ${isSelected ? 'border-indigo-500 bg-indigo-50' : 'border-gray-200 hover:border-gray-300'}"
+                         onclick="toggleAtom(${atom.id})">
+                        <div class="flex items-start gap-3">
+                            <div class="flex-shrink-0 mt-1">
+                                <div class="w-5 h-5 rounded border ${isSelected ? 'bg-indigo-600 border-indigo-600' : 'border-gray-300'} flex items-center justify-center">
+                                    ${isSelected ? '<svg class="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20"><path d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"/></svg>' : ''}
+                                </div>
+                            </div>
+                            <div class="flex-grow min-w-0">
+                                <div class="flex items-center gap-2 mb-1">
+                                    <span class="px-2 py-0.5 bg-gray-100 text-gray-600 rounded text-xs">${atom.type}</span>
+                                    ${atom.source ? `<span class="text-xs text-gray-400 truncate">${atom.source}</span>` : ''}
+                                </div>
+                                <p class="text-sm text-gray-700 line-clamp-2">${atom.content}</p>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function toggleAtom(atomId) {
+            if (selectedAtomIds.has(atomId)) {
+                selectedAtomIds.delete(atomId);
+            } else {
+                if (selectedAtomIds.size >= 10) {
+                    showToast('Maximum 10 atoms per remix');
+                    return;
+                }
+                selectedAtomIds.add(atomId);
+            }
+            renderSelectedAtoms();
+            renderLibrary();
+        }
+
+        function renderSelectedAtoms() {
+            const container = document.getElementById('selected-atoms');
+
+            if (selectedAtomIds.size === 0) {
+                container.innerHTML = '<p class="text-gray-500 text-sm">Select atoms from the left to add them here</p>';
+                document.getElementById('generate-btn').disabled = true;
+                return;
+            }
+
+            const selectedAtoms = libraryAtoms.filter(a => selectedAtomIds.has(a.id));
+            container.innerHTML = selectedAtoms.map(atom => `
+                <div class="flex items-center justify-between p-2 bg-gray-50 rounded text-sm">
+                    <span class="truncate flex-grow">${atom.content.substring(0, 40)}...</span>
+                    <button onclick="toggleAtom(${atom.id})" class="text-red-500 hover:text-red-700 ml-2">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                        </svg>
+                    </button>
+                </div>
+            `).join('');
+
+            document.getElementById('generate-btn').disabled = false;
+        }
+
+        async function generateRemix() {
+            if (selectedAtomIds.size === 0) {
+                showToast('Select at least one atom');
+                return;
+            }
+
+            const btn = document.getElementById('generate-btn');
+            btn.disabled = true;
+            btn.textContent = 'Generating...';
+
+            try {
+                const response = await Auth.fetchWithAuth('/api/remix/generate', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        atom_ids: Array.from(selectedAtomIds),
+                        content_type: document.getElementById('content-type').value,
+                        theme: document.getElementById('remix-theme').value || null
+                    })
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.detail || 'Failed to generate remix');
+                }
+
+                showToast('Remix started!');
+
+                // Redirect to status page
+                setTimeout(() => {
+                    window.location.href = `/status.html?job_id=${data.job_id}`;
+                }, 1000);
+
+            } catch (err) {
+                showToast('Error: ' + err.message);
+                btn.disabled = false;
+                btn.textContent = 'Generate Remix';
+            }
+        }
+
+        async function loadRecentRemixes() {
+            try {
+                const response = await Auth.fetchWithAuth('/api/remix/recent');
+                const data = await response.json();
+
+                const container = document.getElementById('recent-remixes');
+
+                if (!data.remixes || data.remixes.length === 0) {
+                    container.innerHTML = '<p class="text-gray-500 text-sm">No remixes yet</p>';
+                    return;
+                }
+
+                container.innerHTML = data.remixes.map(remix => `
+                    <a href="/results.html?job_id=${remix.job_id}"
+                        class="block p-2 bg-gray-50 rounded hover:bg-gray-100 transition">
+                        <div class="text-sm font-medium text-gray-800 truncate">${remix.name}</div>
+                        <div class="text-xs text-gray-500">
+                            ${remix.status === 'complete' ? 'Completed' : remix.status}
+                        </div>
+                    </a>
+                `).join('');
+
+            } catch (err) {
+                console.error('Failed to load recent remixes:', err);
+            }
+        }
+
+        function showToast(message) {
+            const toast = document.getElementById('toast');
+            toast.textContent = message;
+            toast.classList.remove('hidden');
+            setTimeout(() => toast.classList.add('hidden'), 3000);
+        }
+
+        // Load data on page load
+        loadLibrary();
+        loadSuggestions();
+        loadRecentRemixes();
+    </script>
+</body>
+</html>

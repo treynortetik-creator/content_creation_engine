@@ -1,5 +1,6 @@
 """Persona management and brand voice preview API."""
 import json
+import re
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
@@ -7,11 +8,38 @@ import google.generativeai as genai
 
 from app.config import get_settings, calculate_cost
 from app.api.auth import get_current_user_id
-from app.services.persona_manager import get_persona, list_personas
+from app.database import get_db
+from app.services.persona_manager import get_persona, list_personas, invalidate_cache
 from app.utils.retry import retry_async
 
 router = APIRouter()
 settings = get_settings()
+
+
+class CustomPersonaCreate(BaseModel):
+    """Request to create a custom persona."""
+    title: str
+    description: Optional[str] = None
+    company_size: Optional[str] = None
+    pain_points: Optional[list[str]] = None
+    priorities: Optional[list[str]] = None
+    language_level: Optional[str] = "Professional"
+    tone: Optional[str] = "Professional"
+    length_preference: Optional[str] = "Medium"
+    data_density: Optional[str] = "Moderate"
+
+
+class CustomPersonaUpdate(BaseModel):
+    """Request to update a custom persona."""
+    title: Optional[str] = None
+    description: Optional[str] = None
+    company_size: Optional[str] = None
+    pain_points: Optional[list[str]] = None
+    priorities: Optional[list[str]] = None
+    language_level: Optional[str] = None
+    tone: Optional[str] = None
+    length_preference: Optional[str] = None
+    data_density: Optional[str] = None
 
 
 class BrandVoicePreviewRequest(BaseModel):
@@ -138,3 +166,204 @@ OUTPUT FORMAT (valid JSON):
             status_code=500,
             detail=f"Failed to transform text: {str(e)}"
         )
+
+
+# ==================== Custom Persona CRUD ====================
+
+def generate_persona_id(title: str) -> str:
+    """Generate a URL-friendly persona ID from title."""
+    # Convert to lowercase, replace spaces with underscores, remove special chars
+    persona_id = title.lower().strip()
+    persona_id = re.sub(r'[^a-z0-9\s]', '', persona_id)
+    persona_id = re.sub(r'\s+', '_', persona_id)
+    return f"custom_{persona_id[:30]}"
+
+
+@router.post("/personas/custom")
+async def create_custom_persona(
+    persona: CustomPersonaCreate,
+    user_id: int = Depends(get_current_user_id),
+):
+    """
+    Create a new custom persona.
+
+    Custom personas are user-specific and available for all their content generation.
+    """
+    if not persona.title or len(persona.title) < 3:
+        raise HTTPException(status_code=400, detail="Title must be at least 3 characters")
+
+    persona_id = generate_persona_id(persona.title)
+
+    content_preferences = json.dumps({
+        "tone": persona.tone or "Professional",
+        "length": persona.length_preference or "Medium",
+        "data_density": persona.data_density or "Moderate"
+    })
+
+    async with get_db() as db:
+        # Check for duplicate
+        cursor = await db.execute(
+            "SELECT id FROM custom_personas WHERE user_id = ? AND persona_id = ?",
+            (user_id, persona_id)
+        )
+        if await cursor.fetchone():
+            raise HTTPException(status_code=400, detail="A persona with this name already exists")
+
+        await db.execute(
+            """
+            INSERT INTO custom_personas
+            (user_id, persona_id, title, description, company_size, pain_points,
+             priorities, language_level, content_preferences)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                user_id, persona_id, persona.title, persona.description,
+                persona.company_size, json.dumps(persona.pain_points or []),
+                json.dumps(persona.priorities or []), persona.language_level,
+                content_preferences
+            )
+        )
+        await db.commit()
+
+    return {
+        "success": True,
+        "persona_id": persona_id,
+        "message": f"Custom persona '{persona.title}' created successfully"
+    }
+
+
+@router.get("/personas/custom")
+async def get_custom_personas(
+    user_id: int = Depends(get_current_user_id),
+):
+    """Get all custom personas for the current user."""
+    async with get_db() as db:
+        cursor = await db.execute(
+            """
+            SELECT id, persona_id, title, description, company_size,
+                   pain_points, priorities, language_level, content_preferences,
+                   is_active, created_at
+            FROM custom_personas
+            WHERE user_id = ? AND is_active = TRUE
+            ORDER BY created_at DESC
+            """,
+            (user_id,)
+        )
+        rows = await cursor.fetchall()
+
+        personas = []
+        for row in rows:
+            personas.append({
+                "id": row["id"],
+                "persona_id": row["persona_id"],
+                "title": row["title"],
+                "description": row["description"],
+                "company_size": row["company_size"],
+                "pain_points": json.loads(row["pain_points"]) if row["pain_points"] else [],
+                "priorities": json.loads(row["priorities"]) if row["priorities"] else [],
+                "language_level": row["language_level"],
+                "content_preferences": json.loads(row["content_preferences"]) if row["content_preferences"] else {},
+                "is_custom": True,
+                "created_at": row["created_at"],
+            })
+
+        return {"custom_personas": personas}
+
+
+@router.put("/personas/custom/{persona_db_id}")
+async def update_custom_persona(
+    persona_db_id: int,
+    updates: CustomPersonaUpdate,
+    user_id: int = Depends(get_current_user_id),
+):
+    """Update an existing custom persona."""
+    async with get_db() as db:
+        # Verify ownership
+        cursor = await db.execute(
+            "SELECT id FROM custom_personas WHERE id = ? AND user_id = ?",
+            (persona_db_id, user_id)
+        )
+        if not await cursor.fetchone():
+            raise HTTPException(status_code=404, detail="Persona not found")
+
+        # Build update query dynamically
+        update_fields = []
+        values = []
+
+        if updates.title is not None:
+            update_fields.append("title = ?")
+            values.append(updates.title)
+        if updates.description is not None:
+            update_fields.append("description = ?")
+            values.append(updates.description)
+        if updates.company_size is not None:
+            update_fields.append("company_size = ?")
+            values.append(updates.company_size)
+        if updates.pain_points is not None:
+            update_fields.append("pain_points = ?")
+            values.append(json.dumps(updates.pain_points))
+        if updates.priorities is not None:
+            update_fields.append("priorities = ?")
+            values.append(json.dumps(updates.priorities))
+        if updates.language_level is not None:
+            update_fields.append("language_level = ?")
+            values.append(updates.language_level)
+
+        # Handle content preferences
+        if any([updates.tone, updates.length_preference, updates.data_density]):
+            # Get current preferences
+            cursor = await db.execute(
+                "SELECT content_preferences FROM custom_personas WHERE id = ?",
+                (persona_db_id,)
+            )
+            row = await cursor.fetchone()
+            prefs = json.loads(row["content_preferences"]) if row["content_preferences"] else {}
+
+            if updates.tone is not None:
+                prefs["tone"] = updates.tone
+            if updates.length_preference is not None:
+                prefs["length"] = updates.length_preference
+            if updates.data_density is not None:
+                prefs["data_density"] = updates.data_density
+
+            update_fields.append("content_preferences = ?")
+            values.append(json.dumps(prefs))
+
+        if not update_fields:
+            return {"success": True, "message": "No changes made"}
+
+        update_fields.append("updated_at = CURRENT_TIMESTAMP")
+        values.append(persona_db_id)
+
+        await db.execute(
+            f"UPDATE custom_personas SET {', '.join(update_fields)} WHERE id = ?",
+            values
+        )
+        await db.commit()
+
+    return {"success": True, "message": "Persona updated successfully"}
+
+
+@router.delete("/personas/custom/{persona_db_id}")
+async def delete_custom_persona(
+    persona_db_id: int,
+    user_id: int = Depends(get_current_user_id),
+):
+    """Delete a custom persona (soft delete)."""
+    async with get_db() as db:
+        # Verify ownership
+        cursor = await db.execute(
+            "SELECT id FROM custom_personas WHERE id = ? AND user_id = ?",
+            (persona_db_id, user_id)
+        )
+        if not await cursor.fetchone():
+            raise HTTPException(status_code=404, detail="Persona not found")
+
+        # Soft delete
+        await db.execute(
+            "UPDATE custom_personas SET is_active = FALSE WHERE id = ?",
+            (persona_db_id,)
+        )
+        await db.commit()
+
+    return {"success": True, "message": "Persona deleted"}

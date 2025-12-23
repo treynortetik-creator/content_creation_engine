@@ -212,6 +212,70 @@ async def init_db():
             );
             CREATE INDEX IF NOT EXISTS idx_output_feedback_user_id ON output_feedback(user_id);
             CREATE INDEX IF NOT EXISTS idx_output_feedback_output_id ON output_feedback(output_id);
+
+            -- Zapier webhooks for integrations
+            CREATE TABLE IF NOT EXISTS zapier_webhooks (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL,
+                webhook_url TEXT NOT NULL,
+                webhook_name TEXT,
+                trigger_event TEXT NOT NULL,
+                enabled BOOLEAN DEFAULT TRUE,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                last_triggered_at TIMESTAMP,
+                last_error TEXT,
+                FOREIGN KEY (user_id) REFERENCES users(id)
+            );
+            CREATE INDEX IF NOT EXISTS idx_zapier_webhooks_user_id ON zapier_webhooks(user_id);
+
+            -- Content calendar scheduling
+            CREATE TABLE IF NOT EXISTS content_schedule (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL,
+                output_id INTEGER NOT NULL,
+                scheduled_date TEXT NOT NULL,
+                notes TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (user_id) REFERENCES users(id),
+                FOREIGN KEY (output_id) REFERENCES outputs(id),
+                UNIQUE(output_id)
+            );
+            CREATE INDEX IF NOT EXISTS idx_content_schedule_user_id ON content_schedule(user_id);
+            CREATE INDEX IF NOT EXISTS idx_content_schedule_date ON content_schedule(scheduled_date);
+
+            -- Batches for batch processing
+            CREATE TABLE IF NOT EXISTS batches (
+                id TEXT PRIMARY KEY,
+                user_id INTEGER NOT NULL,
+                total_jobs INTEGER NOT NULL,
+                completed_jobs INTEGER DEFAULT 0,
+                failed_jobs INTEGER DEFAULT 0,
+                status TEXT DEFAULT 'processing',
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                completed_at TIMESTAMP,
+                FOREIGN KEY (user_id) REFERENCES users(id)
+            );
+            CREATE INDEX IF NOT EXISTS idx_batches_user_id ON batches(user_id);
+
+            -- Custom personas created by users
+            CREATE TABLE IF NOT EXISTS custom_personas (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL,
+                persona_id TEXT NOT NULL,
+                title TEXT NOT NULL,
+                description TEXT,
+                company_size TEXT,
+                pain_points JSON,
+                priorities JSON,
+                language_level TEXT DEFAULT 'Professional',
+                content_preferences JSON,
+                is_active BOOLEAN DEFAULT TRUE,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (user_id) REFERENCES users(id),
+                UNIQUE(user_id, persona_id)
+            );
+            CREATE INDEX IF NOT EXISTS idx_custom_personas_user_id ON custom_personas(user_id);
         """)
 
         await db.commit()
@@ -239,6 +303,13 @@ async def init_db():
             await db.execute("ALTER TABLE outputs ADD COLUMN send_day INTEGER")
             await db.execute("ALTER TABLE outputs ADD COLUMN email_type TEXT")
             await db.execute("ALTER TABLE outputs ADD COLUMN cta_text TEXT")
+            await db.commit()
+
+        # Migration: Add batch_id column to jobs if missing
+        try:
+            await db.execute("SELECT batch_id FROM jobs LIMIT 1")
+        except aiosqlite.OperationalError:
+            await db.execute("ALTER TABLE jobs ADD COLUMN batch_id TEXT")
             await db.commit()
 
         # Create default user if not exists
