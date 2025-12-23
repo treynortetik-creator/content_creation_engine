@@ -45,7 +45,7 @@ async def get_job_status(
         cursor = await db.execute(
             """
             SELECT id, user_id, status, current_step, progress, error_message,
-                   transcript, cleaned_transcript
+                   transcript, cleaned_transcript, preview_output
             FROM jobs WHERE id = ? AND user_id = ?
             """,
             (job_id, user_id)
@@ -62,6 +62,9 @@ async def get_job_status(
         elif row["transcript"]:
             partial_transcript = row["transcript"][:1000]
 
+        # Get preview output if available
+        preview_output = row["preview_output"] if "preview_output" in row.keys() else None
+
         return {
             "job_id": row["id"],
             "status": row["status"],
@@ -70,6 +73,7 @@ async def get_job_status(
             "estimated_time_remaining": estimate_time_remaining(row["status"], row["progress"]),
             "error_message": row["error_message"],
             "partial_transcript": partial_transcript,
+            "preview_output": preview_output,
         }
 
 

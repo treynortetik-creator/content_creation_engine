@@ -244,6 +244,86 @@ OUTPUT FORMAT (valid JSON):
     return drafts, cost
 
 
+async def draft_linkedin_quick(
+    atoms: list[dict],
+    target_persona: Union[str, dict],
+    user_id: int = None,
+) -> Tuple[str, float]:
+    """
+    Generate a single quick LinkedIn post for preview.
+
+    This is called immediately after atomization to give users
+    a "quick win" preview while the full pipeline completes.
+
+    Args:
+        atoms: List of content atoms (should already be top 3-5 by relevance)
+        target_persona: Either a persona ID string or a combined persona dict
+        user_id: User ID for fetching brand voice context
+
+    Returns (post_content, cost) tuple.
+    """
+    # Handle both legacy (persona_id string) and new format (combined persona dict)
+    if isinstance(target_persona, str):
+        persona = await get_persona(target_persona)
+        if not persona:
+            raise ValueError(f"Persona not found: {target_persona}")
+        persona_title = persona["title"]
+        pain_points = persona.get("pain_points", [])
+    else:
+        persona_title = target_persona.get("title", "Target Audience")
+        pain_points = target_persona.get("pain_points", [])
+
+    # Format atoms for prompt
+    atoms_text = "\n".join([
+        f"- [{a['atom_type'].upper()}] {a['content']}"
+        for a in atoms[:5]  # Use top 5 atoms max
+    ])
+
+    # Fetch brand voice if available
+    brand_voice_section = ""
+    if user_id:
+        brand_context = await get_user_brand_context(user_id)
+        if brand_context:
+            brand_voice_section = format_brand_voice_for_prompt(brand_context, "linkedin")
+
+    prompt = f"""{brand_voice_section}
+Generate ONE compelling LinkedIn post using these content atoms.
+
+CONTENT ATOMS:
+{atoms_text}
+
+TARGET AUDIENCE: {persona_title}
+AUDIENCE PAIN POINTS: {', '.join(pain_points[:3]) if pain_points else 'Not specified'}
+
+REQUIREMENTS:
+- Hook readers in the first line (question, bold statement, or surprising stat)
+- Use 3-5 short bullet points or short paragraphs
+- Keep it under 300 words
+- End with a clear call-to-action
+- Reference specific atoms naturally
+- Make it feel authentic, not corporate
+
+OUTPUT FORMAT: Just the post text, no JSON, no labels. Just the actual LinkedIn post content ready to copy.
+"""
+
+    # Use fast model for quick preview
+    admin_model = settings_manager.get_model_for_step("drafting")
+    model = admin_model or "claude-sonnet-4-20250514"
+
+    response_text, input_tokens, output_tokens, actual_model = await call_llm(
+        prompt, model, max_tokens=800
+    )
+
+    # Clean up response - remove any wrapping quotes or labels
+    post_content = response_text.strip()
+    if post_content.startswith('"') and post_content.endswith('"'):
+        post_content = post_content[1:-1]
+
+    cost = calculate_cost(actual_model, input_tokens, output_tokens)
+
+    return post_content, cost
+
+
 async def draft_blog_post(
     atoms: list[dict],
     target_persona: Union[str, dict],

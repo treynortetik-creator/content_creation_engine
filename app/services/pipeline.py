@@ -9,7 +9,7 @@ from app.database import get_db
 from app.models.job import JobStatus
 from app.services.transcription import transcribe_file, cleanup_transcript, extract_document_content
 from app.services.atomization import atomize_content
-from app.services.drafting import draft_linkedin_posts, draft_blog_post, draft_email
+from app.services.drafting import draft_linkedin_posts, draft_blog_post, draft_email, draft_linkedin_quick
 from app.services.editing import batch_edit_content
 from app.services.factcheck import batch_factcheck_content
 from app.services.library_manager import (
@@ -22,6 +22,39 @@ from app.services.scoring import batch_score_content
 from app.utils.error_messages import format_pipeline_error, detect_error_type, get_error_message
 
 settings = get_settings()
+
+
+def select_top_atoms(atoms: list[dict], count: int = 3) -> list[dict]:
+    """
+    Select the top atoms by persona relevance for preview generation.
+
+    Args:
+        atoms: List of atoms with persona_relevance scores
+        count: Number of atoms to select
+
+    Returns:
+        Top N atoms sorted by highest persona relevance
+    """
+    def get_relevance_score(atom: dict) -> float:
+        """Extract maximum relevance score from persona_relevance dict."""
+        relevance = atom.get("persona_relevance", {})
+        if isinstance(relevance, dict) and relevance:
+            return max(relevance.values())
+        return 0.5  # Default middle score
+
+    # Sort by relevance score descending
+    sorted_atoms = sorted(atoms, key=get_relevance_score, reverse=True)
+    return sorted_atoms[:count]
+
+
+async def save_preview_output(job_id: str, preview_content: str):
+    """Save preview output to the job record."""
+    async with get_db() as db:
+        await db.execute(
+            "UPDATE jobs SET preview_output = ? WHERE id = ?",
+            (preview_content, job_id)
+        )
+        await db.commit()
 
 
 async def update_job_status(
@@ -247,6 +280,32 @@ async def process_job(job_id: str):
         # Save atoms to database and library
         await save_atoms_to_db(atoms)
         await add_atoms_to_library(atoms, user_id, original_filename)
+
+        # ======== QUICK WIN PREVIEW ========
+        # Generate a preview LinkedIn post immediately so users see output fast
+        if "linkedin" in asset_types:
+            try:
+                await update_job_status(
+                    job_id, JobStatus.ATOMIZING,
+                    "Generating quick preview...", 40, total_cost
+                )
+                total_cost = 0
+
+                # Select top 3 atoms by persona relevance
+                best_atoms = select_top_atoms(atoms, count=3)
+
+                # Generate quick preview
+                preview_post, preview_cost = await draft_linkedin_quick(
+                    best_atoms, combined_persona, user_id=user_id
+                )
+                total_cost += preview_cost
+
+                # Save preview
+                await save_preview_output(job_id, preview_post)
+
+            except Exception as preview_error:
+                # Don't fail the job if preview fails, just log and continue
+                print(f"Preview generation failed for job {job_id}: {preview_error}")
 
         # ======== STEP 2: DRAFTING ========
         await update_job_status(

@@ -99,6 +99,32 @@
                 </div>
             </div>
 
+            <!-- Quick Win Preview (shown when preview is ready) -->
+            <div id="preview-section" class="hidden mt-6 bg-green-50 border-2 border-green-500 rounded-lg p-6">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-xl font-bold text-green-800">🎉 Preview Ready!</h3>
+                    <span class="text-sm bg-green-100 text-green-700 px-2 py-1 rounded">Quick Win</span>
+                </div>
+                <p class="text-green-700 mb-4">Here's your first LinkedIn post while the rest generates:</p>
+
+                <div class="bg-white p-4 rounded-lg border border-green-200 shadow-sm">
+                    <pre id="preview-content" class="whitespace-pre-wrap text-gray-800 font-sans text-sm leading-relaxed"></pre>
+                </div>
+
+                <div class="mt-4 flex items-center justify-between">
+                    <button onclick="copyPreview()" id="copy-preview-btn"
+                        class="bg-green-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-green-700 transition flex items-center">
+                        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
+                        </svg>
+                        Copy Preview
+                    </button>
+                    <p class="text-sm text-green-600">
+                        Full results with variations + quality scores coming soon...
+                    </p>
+                </div>
+            </div>
+
             <!-- Transcript Preview (hidden until available) -->
             <div id="transcript-preview-section" class="hidden mt-6">
                 <h3 class="text-sm font-semibold text-gray-700 mb-2">Transcript Preview</h3>
@@ -179,6 +205,33 @@
         // Rotate tips every 10 seconds
         const tipInterval = setInterval(rotateTip, 10000);
 
+        // Copy preview to clipboard
+        function copyPreview() {
+            const previewText = document.getElementById('preview-content').textContent;
+            navigator.clipboard.writeText(previewText).then(() => {
+                const btn = document.getElementById('copy-preview-btn');
+                const originalHTML = btn.innerHTML;
+                btn.innerHTML = `
+                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                    </svg>
+                    Copied!
+                `;
+                btn.classList.remove('bg-green-600', 'hover:bg-green-700');
+                btn.classList.add('bg-green-500');
+                setTimeout(() => {
+                    btn.innerHTML = originalHTML;
+                    btn.classList.remove('bg-green-500');
+                    btn.classList.add('bg-green-600', 'hover:bg-green-700');
+                }, 2000);
+            }).catch(err => {
+                console.error('Failed to copy:', err);
+            });
+        }
+
+        // Track if we've shown the preview
+        let previewShown = false;
+
         const statusMap = {
             'uploading': { step: 0, text: 'Uploading file...' },
             'transcribing': { step: 1, text: 'Transcribing content...' },
@@ -247,6 +300,15 @@
                 if (data.partial_transcript) {
                     document.getElementById('transcript-preview-section').classList.remove('hidden');
                     document.getElementById('transcript-preview').textContent = data.partial_transcript + '...';
+                }
+
+                // Show preview if available and not already shown
+                if (data.preview_output && !previewShown) {
+                    previewShown = true;
+                    document.getElementById('preview-section').classList.remove('hidden');
+                    document.getElementById('preview-content').textContent = data.preview_output;
+                    // Hide transcript preview when we have the real preview
+                    document.getElementById('transcript-preview-section').classList.add('hidden');
                 }
 
                 updateStepUI(statusInfo.step);

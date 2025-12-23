@@ -70,6 +70,7 @@ async def init_db():
                 progress INTEGER DEFAULT 0,
                 transcript TEXT,
                 cleaned_transcript TEXT,
+                preview_output TEXT,
                 error_message TEXT,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 completed_at TIMESTAMP,
@@ -170,6 +171,13 @@ async def init_db():
         """)
 
         await db.commit()
+
+        # Migration: Add preview_output column if missing
+        try:
+            await db.execute("SELECT preview_output FROM jobs LIMIT 1")
+        except aiosqlite.OperationalError:
+            await db.execute("ALTER TABLE jobs ADD COLUMN preview_output TEXT")
+            await db.commit()
 
         # Create default user if not exists
         cursor = await db.execute("SELECT id FROM users WHERE email = ?", ("default@contentmultiplier.com",))
