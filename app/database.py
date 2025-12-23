@@ -285,6 +285,32 @@ async def init_db():
                 description TEXT,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
+
+            -- Deep analysis results for individual swipe entries
+            CREATE TABLE IF NOT EXISTS swipe_analysis (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                swipe_id INTEGER NOT NULL UNIQUE,
+                user_id INTEGER NOT NULL,
+                analysis_data JSON NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (swipe_id) REFERENCES swipe_file(id) ON DELETE CASCADE,
+                FOREIGN KEY (user_id) REFERENCES users(id)
+            );
+            CREATE INDEX IF NOT EXISTS idx_swipe_analysis_swipe_id ON swipe_analysis(swipe_id);
+            CREATE INDEX IF NOT EXISTS idx_swipe_analysis_user_id ON swipe_analysis(user_id);
+
+            -- Collection-level analysis for aggregated swipe patterns
+            CREATE TABLE IF NOT EXISTS swipe_collection_analysis (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL,
+                content_type TEXT,
+                analysis_data JSON NOT NULL,
+                swipe_count INTEGER NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (user_id) REFERENCES users(id)
+            );
+            CREATE INDEX IF NOT EXISTS idx_swipe_collection_user_id ON swipe_collection_analysis(user_id);
+            CREATE INDEX IF NOT EXISTS idx_swipe_collection_content_type ON swipe_collection_analysis(content_type);
         """)
 
         await db.commit()

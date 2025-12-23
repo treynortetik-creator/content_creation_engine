@@ -33,49 +33,177 @@
                 <h1 class="text-3xl font-bold">Swipe File</h1>
                 <p class="text-gray-600 mt-1">Your saved favorites - the AI learns from these patterns</p>
             </div>
+            <div class="flex gap-2">
+                <button onclick="analyzeCollection()"
+                    class="px-4 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-lg hover:from-purple-700 hover:to-indigo-700 transition font-medium flex items-center gap-2">
+                    <span>&#9889;</span> Analyze Collection
+                </button>
+                <button onclick="generateStyleGuide()"
+                    class="px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition font-medium flex items-center gap-2">
+                    <span>&#128203;</span> Style Guide
+                </button>
+            </div>
         </div>
 
-        <!-- Pattern Summary -->
-        <div id="pattern-summary" class="bg-gradient-to-r from-green-50 to-blue-50 rounded-lg p-6 mb-8 hidden">
-            <h2 class="text-lg font-semibold text-gray-800 mb-4">Your Writing Patterns</h2>
-            <div class="grid md:grid-cols-4 gap-4" id="pattern-cards"></div>
+        <!-- Tabs -->
+        <div class="border-b border-gray-200 mb-6">
+            <nav class="flex gap-4">
+                <button class="tab-btn px-4 py-2 border-b-2 border-indigo-600 text-indigo-600 font-medium" data-tab="swipes">
+                    Swipe File
+                </button>
+                <button class="tab-btn px-4 py-2 border-b-2 border-transparent text-gray-500 hover:text-gray-700" data-tab="analysis">
+                    Collection Analysis
+                </button>
+                <button class="tab-btn px-4 py-2 border-b-2 border-transparent text-gray-500 hover:text-gray-700" data-tab="styleguide">
+                    Style Guide
+                </button>
+            </nav>
         </div>
 
-        <!-- Filter Tabs -->
-        <div class="mb-6 flex gap-2">
-            <button class="filter-btn px-4 py-2 rounded-lg bg-indigo-600 text-white font-medium" data-type="all">
-                All
-            </button>
-            <button class="filter-btn px-4 py-2 rounded-lg bg-gray-100 text-gray-600" data-type="linkedin">
-                LinkedIn
-            </button>
-            <button class="filter-btn px-4 py-2 rounded-lg bg-gray-100 text-gray-600" data-type="blog">
-                Blog
-            </button>
-            <button class="filter-btn px-4 py-2 rounded-lg bg-gray-100 text-gray-600" data-type="email">
-                Email
-            </button>
-            <button class="filter-btn px-4 py-2 rounded-lg bg-gray-100 text-gray-600" data-type="email_sequence">
-                Email Sequence
-            </button>
+        <!-- Tab: Swipes -->
+        <div id="tab-swipes" class="tab-content">
+            <!-- Pattern Summary -->
+            <div id="pattern-summary" class="bg-gradient-to-r from-green-50 to-blue-50 rounded-lg p-6 mb-8 hidden">
+                <h2 class="text-lg font-semibold text-gray-800 mb-4">Your Writing Patterns</h2>
+                <div class="grid md:grid-cols-4 gap-4" id="pattern-cards"></div>
+            </div>
+
+            <!-- Filter Tabs -->
+            <div class="mb-6 flex gap-2">
+                <button class="filter-btn px-4 py-2 rounded-lg bg-indigo-600 text-white font-medium" data-type="all">
+                    All
+                </button>
+                <button class="filter-btn px-4 py-2 rounded-lg bg-gray-100 text-gray-600" data-type="linkedin">
+                    LinkedIn
+                </button>
+                <button class="filter-btn px-4 py-2 rounded-lg bg-gray-100 text-gray-600" data-type="blog">
+                    Blog
+                </button>
+                <button class="filter-btn px-4 py-2 rounded-lg bg-gray-100 text-gray-600" data-type="email">
+                    Email
+                </button>
+                <button class="filter-btn px-4 py-2 rounded-lg bg-gray-100 text-gray-600" data-type="email_sequence">
+                    Email Sequence
+                </button>
+            </div>
+
+            <!-- Loading State -->
+            <div id="loading" class="text-center py-12">
+                <div class="animate-spin h-8 w-8 border-4 border-indigo-600 border-t-transparent rounded-full mx-auto"></div>
+                <p class="mt-4 text-gray-600">Loading swipe file...</p>
+            </div>
+
+            <!-- Empty State -->
+            <div id="empty-state" class="hidden text-center py-12 bg-white rounded-lg shadow-sm">
+                <div class="text-6xl mb-4">&#128218;</div>
+                <h3 class="text-xl font-semibold text-gray-800 mb-2">Your swipe file is empty</h3>
+                <p class="text-gray-600 mb-4">Save your favorite outputs to build a collection of patterns the AI can learn from.</p>
+                <a href="/library.html" class="text-indigo-600 hover:underline">Browse your library</a>
+            </div>
+
+            <!-- Swipe List -->
+            <div id="swipe-container" class="space-y-4 hidden"></div>
         </div>
 
-        <!-- Loading State -->
-        <div id="loading" class="text-center py-12">
-            <div class="animate-spin h-8 w-8 border-4 border-indigo-600 border-t-transparent rounded-full mx-auto"></div>
-            <p class="mt-4 text-gray-600">Loading swipe file...</p>
+        <!-- Tab: Collection Analysis -->
+        <div id="tab-analysis" class="tab-content hidden">
+            <div id="analysis-empty" class="text-center py-12 bg-white rounded-lg shadow-sm">
+                <div class="text-6xl mb-4">&#128200;</div>
+                <h3 class="text-xl font-semibold text-gray-800 mb-2">No Collection Analysis Yet</h3>
+                <p class="text-gray-600 mb-4">Analyze your swipe file to discover patterns and get AI-powered insights.</p>
+                <button onclick="analyzeCollection()"
+                    class="px-6 py-3 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-lg hover:from-purple-700 hover:to-indigo-700 transition font-medium">
+                    Analyze My Collection
+                </button>
+            </div>
+
+            <div id="analysis-results" class="hidden space-y-6">
+                <div class="bg-white rounded-lg shadow-sm p-6">
+                    <h3 class="text-lg font-semibold text-gray-800 mb-4">Collection Stats</h3>
+                    <div id="collection-stats" class="grid md:grid-cols-4 gap-4"></div>
+                </div>
+
+                <div class="bg-white rounded-lg shadow-sm p-6">
+                    <h3 class="text-lg font-semibold text-gray-800 mb-4">Dominant Patterns</h3>
+                    <div id="dominant-patterns" class="grid md:grid-cols-3 gap-6"></div>
+                </div>
+
+                <div class="bg-white rounded-lg shadow-sm p-6">
+                    <h3 class="text-lg font-semibold text-gray-800 mb-4">Vocabulary Profile</h3>
+                    <div id="vocabulary-profile"></div>
+                </div>
+
+                <div class="bg-white rounded-lg shadow-sm p-6">
+                    <h3 class="text-lg font-semibold text-gray-800 mb-4">Formatting Preferences</h3>
+                    <div id="formatting-prefs" class="grid md:grid-cols-2 gap-4"></div>
+                </div>
+            </div>
         </div>
 
-        <!-- Empty State -->
-        <div id="empty-state" class="hidden text-center py-12 bg-white rounded-lg shadow-sm">
-            <div class="text-6xl mb-4">&#128218;</div>
-            <h3 class="text-xl font-semibold text-gray-800 mb-2">Your swipe file is empty</h3>
-            <p class="text-gray-600 mb-4">Save your favorite outputs to build a collection of patterns the AI can learn from.</p>
-            <a href="/library.html" class="text-indigo-600 hover:underline">Browse your library</a>
-        </div>
+        <!-- Tab: Style Guide -->
+        <div id="tab-styleguide" class="tab-content hidden">
+            <div id="styleguide-empty" class="text-center py-12 bg-white rounded-lg shadow-sm">
+                <div class="text-6xl mb-4">&#128203;</div>
+                <h3 class="text-xl font-semibold text-gray-800 mb-2">No Style Guide Yet</h3>
+                <p class="text-gray-600 mb-4">Generate a style guide based on your swipe file to guide future content.</p>
+                <button onclick="generateStyleGuide()"
+                    class="px-6 py-3 bg-gradient-to-r from-green-600 to-teal-600 text-white rounded-lg hover:from-green-700 hover:to-teal-700 transition font-medium">
+                    Generate Style Guide
+                </button>
+            </div>
 
-        <!-- Swipe List -->
-        <div id="swipe-container" class="space-y-4 hidden"></div>
+            <div id="styleguide-results" class="hidden space-y-6">
+                <div class="bg-gradient-to-r from-green-50 to-teal-50 rounded-lg p-6">
+                    <h3 class="text-lg font-semibold text-gray-800 mb-2">Voice Summary</h3>
+                    <p id="voice-summary" class="text-gray-700"></p>
+                </div>
+
+                <div class="grid md:grid-cols-2 gap-6">
+                    <div class="bg-white rounded-lg shadow-sm p-6">
+                        <h3 class="text-lg font-semibold text-green-700 mb-4 flex items-center gap-2">
+                            <span>&#10004;</span> DO
+                        </h3>
+                        <ul id="do-list" class="space-y-2"></ul>
+                    </div>
+
+                    <div class="bg-white rounded-lg shadow-sm p-6">
+                        <h3 class="text-lg font-semibold text-red-700 mb-4 flex items-center gap-2">
+                            <span>&#10006;</span> DON'T
+                        </h3>
+                        <ul id="dont-list" class="space-y-2"></ul>
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-lg shadow-sm p-6">
+                    <h3 class="text-lg font-semibold text-gray-800 mb-4">Hook Templates</h3>
+                    <div id="hook-templates" class="space-y-3"></div>
+                </div>
+
+                <div class="bg-white rounded-lg shadow-sm p-6">
+                    <h3 class="text-lg font-semibold text-gray-800 mb-4">CTA Templates</h3>
+                    <div id="cta-templates" class="space-y-3"></div>
+                </div>
+
+                <div class="bg-white rounded-lg shadow-sm p-6">
+                    <h3 class="text-lg font-semibold text-gray-800 mb-4">AI Prompt Injection</h3>
+                    <p class="text-sm text-gray-600 mb-3">This text is automatically injected into content generation prompts:</p>
+                    <pre id="prompt-injection" class="bg-gray-100 p-4 rounded-lg text-sm overflow-x-auto whitespace-pre-wrap"></pre>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Deep Analysis Modal -->
+    <div id="analysis-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
+        <div class="bg-white rounded-lg shadow-xl max-w-3xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+            <div class="p-6 border-b border-gray-200 flex justify-between items-center sticky top-0 bg-white">
+                <h3 class="text-xl font-semibold text-gray-800">Deep Analysis</h3>
+                <button onclick="closeAnalysisModal()" class="text-gray-500 hover:text-gray-700 text-2xl">&times;</button>
+            </div>
+            <div id="modal-content" class="p-6">
+                <!-- Analysis content will be injected here -->
+            </div>
+        </div>
     </div>
 
     <!-- Toast -->
@@ -91,6 +219,25 @@
 
         let allSwipes = [];
         let currentFilter = 'all';
+        let cachedAnalysis = null;
+        let cachedStyleGuide = null;
+
+        // Tab switching
+        document.querySelectorAll('.tab-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const tab = btn.dataset.tab;
+
+                document.querySelectorAll('.tab-btn').forEach(b => {
+                    b.classList.remove('border-indigo-600', 'text-indigo-600');
+                    b.classList.add('border-transparent', 'text-gray-500');
+                });
+                btn.classList.remove('border-transparent', 'text-gray-500');
+                btn.classList.add('border-indigo-600', 'text-indigo-600');
+
+                document.querySelectorAll('.tab-content').forEach(c => c.classList.add('hidden'));
+                document.getElementById(`tab-${tab}`).classList.remove('hidden');
+            });
+        });
 
         // Filter button clicks
         document.querySelectorAll('.filter-btn').forEach(btn => {
@@ -127,7 +274,7 @@
                     allSwipes = allSwipes.filter(s => s.id !== swipeId);
                     renderSwipes();
                     showToast('Removed from swipe file');
-                    loadPatterns(); // Refresh patterns
+                    loadPatterns();
                 } else {
                     showToast('Failed to remove');
                 }
@@ -150,6 +297,159 @@
                 'email_sequence': 'purple'
             };
             return colors[type] || 'gray';
+        }
+
+        async function deepAnalyze(swipeId) {
+            const modal = document.getElementById('analysis-modal');
+            const content = document.getElementById('modal-content');
+
+            content.innerHTML = `
+                <div class="text-center py-8">
+                    <div class="animate-spin h-8 w-8 border-4 border-indigo-600 border-t-transparent rounded-full mx-auto"></div>
+                    <p class="mt-4 text-gray-600">Running deep analysis...</p>
+                </div>
+            `;
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+
+            try {
+                const response = await Auth.fetchWithAuth(`/api/swipe/${swipeId}/deep-analyze`, {
+                    method: 'POST'
+                });
+                const data = await response.json();
+
+                if (response.ok) {
+                    renderDeepAnalysis(data.analysis, data.cached);
+                } else {
+                    content.innerHTML = `
+                        <div class="text-center py-8">
+                            <p class="text-red-600">${data.detail || 'Analysis failed'}</p>
+                        </div>
+                    `;
+                }
+            } catch (err) {
+                console.error('Deep analysis error:', err);
+                content.innerHTML = `
+                    <div class="text-center py-8">
+                        <p class="text-red-600">Failed to run analysis</p>
+                    </div>
+                `;
+            }
+        }
+
+        function renderDeepAnalysis(analysis, cached) {
+            const content = document.getElementById('modal-content');
+
+            content.innerHTML = `
+                ${cached ? '<p class="text-sm text-gray-500 mb-4">Showing cached analysis</p>' : ''}
+
+                <!-- Hook Analysis -->
+                <div class="mb-6">
+                    <h4 class="font-semibold text-gray-800 mb-3 flex items-center gap-2">
+                        <span class="text-xl">&#128293;</span> Hook Analysis
+                    </h4>
+                    <div class="bg-gray-50 rounded-lg p-4 space-y-2">
+                        <div class="flex justify-between">
+                            <span class="text-gray-600">Type:</span>
+                            <span class="font-medium capitalize">${analysis.hook_analysis?.type || 'N/A'}</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-gray-600">Technique:</span>
+                            <span class="font-medium">${analysis.hook_analysis?.technique || 'N/A'}</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-gray-600">Strength:</span>
+                            <span class="font-medium ${analysis.hook_analysis?.hook_strength === 'strong' ? 'text-green-600' : ''}">${analysis.hook_analysis?.hook_strength || 'N/A'}</span>
+                        </div>
+                        <div class="pt-2 border-t border-gray-200">
+                            <p class="text-sm text-gray-600 italic">"${analysis.hook_analysis?.first_line || ''}"</p>
+                        </div>
+                        <div class="pt-2">
+                            <p class="text-sm text-gray-700">${analysis.hook_analysis?.why_it_works || ''}</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Effectiveness Scores -->
+                <div class="mb-6">
+                    <h4 class="font-semibold text-gray-800 mb-3 flex items-center gap-2">
+                        <span class="text-xl">&#127942;</span> Effectiveness Scores
+                    </h4>
+                    <div class="grid grid-cols-5 gap-2">
+                        ${Object.entries(analysis.effectiveness_scores || {}).map(([key, value]) => `
+                            <div class="text-center p-3 bg-gray-50 rounded-lg">
+                                <div class="text-2xl font-bold ${value >= 8 ? 'text-green-600' : value >= 6 ? 'text-yellow-600' : 'text-red-600'}">${value}</div>
+                                <div class="text-xs text-gray-500 capitalize">${key.replace('_', ' ')}</div>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+
+                <!-- Language Patterns -->
+                <div class="mb-6">
+                    <h4 class="font-semibold text-gray-800 mb-3 flex items-center gap-2">
+                        <span class="text-xl">&#128172;</span> Language Patterns
+                    </h4>
+                    <div class="bg-gray-50 rounded-lg p-4">
+                        <div class="grid grid-cols-2 gap-4 mb-4">
+                            <div>
+                                <span class="text-gray-600 text-sm">Reading Level:</span>
+                                <span class="font-medium ml-2 capitalize">${analysis.language_patterns?.reading_level || 'N/A'}</span>
+                            </div>
+                            <div>
+                                <span class="text-gray-600 text-sm">Uses Contractions:</span>
+                                <span class="font-medium ml-2">${analysis.language_patterns?.uses_contractions ? 'Yes' : 'No'}</span>
+                            </div>
+                        </div>
+                        ${analysis.language_patterns?.power_words?.length ? `
+                            <div class="mb-3">
+                                <span class="text-gray-600 text-sm block mb-1">Power Words:</span>
+                                <div class="flex flex-wrap gap-1">
+                                    ${analysis.language_patterns.power_words.map(w => `
+                                        <span class="px-2 py-0.5 bg-indigo-100 text-indigo-700 rounded text-xs">${w}</span>
+                                    `).join('')}
+                                </div>
+                            </div>
+                        ` : ''}
+                    </div>
+                </div>
+
+                <!-- Replication Guide -->
+                <div class="mb-6">
+                    <h4 class="font-semibold text-gray-800 mb-3 flex items-center gap-2">
+                        <span class="text-xl">&#128736;</span> Replication Guide
+                    </h4>
+                    <div class="bg-gradient-to-r from-green-50 to-teal-50 rounded-lg p-4">
+                        <p class="text-sm text-gray-700 mb-3"><strong>Template:</strong> ${analysis.replication_guide?.template || 'N/A'}</p>
+                        <div class="grid md:grid-cols-2 gap-4">
+                            <div>
+                                <p class="text-sm font-medium text-green-700 mb-2">Key Elements to Copy:</p>
+                                <ul class="text-sm text-gray-700 space-y-1">
+                                    ${(analysis.replication_guide?.key_elements_to_copy || []).map(e => `<li>&#10004; ${e}</li>`).join('')}
+                                </ul>
+                            </div>
+                            <div>
+                                <p class="text-sm font-medium text-red-700 mb-2">Avoid:</p>
+                                <ul class="text-sm text-gray-700 space-y-1">
+                                    ${(analysis.replication_guide?.avoid || []).map(e => `<li>&#10006; ${e}</li>`).join('')}
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Content Stats -->
+                <div class="text-sm text-gray-500 flex gap-4">
+                    <span>&#128196; ${analysis.word_count || 0} words</span>
+                    <span>&#128337; ${analysis.estimated_read_time || 'N/A'}</span>
+                </div>
+            `;
+        }
+
+        function closeAnalysisModal() {
+            const modal = document.getElementById('analysis-modal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
         }
 
         function renderPatternCard(title, items, icon) {
@@ -208,6 +508,10 @@
                                 <span class="text-xs text-gray-400">${date}</span>
                             </div>
                             <div class="flex items-center gap-2">
+                                <button onclick="deepAnalyze(${swipe.id})"
+                                    class="text-purple-600 hover:text-purple-800 text-sm font-medium">
+                                    &#9889; Analyze
+                                </button>
                                 <button onclick="copyToClipboard(\`${swipe.content.replace(/`/g, '\\`').replace(/\$/g, '\\$')}\`)"
                                     class="text-indigo-600 hover:text-indigo-800 text-sm">
                                     Copy
@@ -264,6 +568,192 @@
             }).join('');
         }
 
+        async function analyzeCollection() {
+            showToast('Analyzing collection...');
+
+            try {
+                const contentType = currentFilter !== 'all' ? currentFilter : null;
+                const url = contentType
+                    ? `/api/swipe/analyze-collection?content_type=${contentType}`
+                    : '/api/swipe/analyze-collection';
+
+                const response = await Auth.fetchWithAuth(url, { method: 'POST' });
+                const data = await response.json();
+
+                if (response.ok) {
+                    cachedAnalysis = data.analysis;
+                    renderCollectionAnalysis(data.analysis);
+
+                    // Switch to analysis tab
+                    document.querySelector('[data-tab="analysis"]').click();
+                    showToast('Collection analyzed successfully!');
+                } else {
+                    showToast(data.detail || 'Analysis failed');
+                }
+            } catch (err) {
+                console.error('Collection analysis error:', err);
+                showToast('Failed to analyze collection');
+            }
+        }
+
+        function renderCollectionAnalysis(analysis) {
+            document.getElementById('analysis-empty').classList.add('hidden');
+            document.getElementById('analysis-results').classList.remove('hidden');
+
+            // Stats
+            const stats = analysis.collection_stats || {};
+            document.getElementById('collection-stats').innerHTML = `
+                <div class="text-center p-4 bg-gray-50 rounded-lg">
+                    <div class="text-2xl font-bold text-indigo-600">${stats.total_pieces || 0}</div>
+                    <div class="text-sm text-gray-500">Total Pieces</div>
+                </div>
+                <div class="text-center p-4 bg-gray-50 rounded-lg">
+                    <div class="text-2xl font-bold text-green-600">${stats.avg_word_count || 0}</div>
+                    <div class="text-sm text-gray-500">Avg Word Count</div>
+                </div>
+                <div class="text-center p-4 bg-gray-50 rounded-lg">
+                    <div class="text-2xl font-bold text-purple-600 capitalize">${stats.common_lengths || 'N/A'}</div>
+                    <div class="text-sm text-gray-500">Common Length</div>
+                </div>
+            `;
+
+            // Dominant patterns
+            const patterns = analysis.dominant_patterns || {};
+            document.getElementById('dominant-patterns').innerHTML = `
+                <div>
+                    <h4 class="font-medium text-gray-700 mb-2">&#128293; Hook Styles</h4>
+                    <div class="space-y-2">
+                        ${(patterns.hook_styles || []).map(h => `
+                            <div class="flex justify-between text-sm">
+                                <span class="capitalize">${h.style}</span>
+                                <span class="text-gray-500">${h.frequency}</span>
+                            </div>
+                        `).join('') || '<p class="text-gray-400 text-sm">No data</p>'}
+                    </div>
+                </div>
+                <div>
+                    <h4 class="font-medium text-gray-700 mb-2">&#128202; Structures</h4>
+                    <div class="space-y-2">
+                        ${(patterns.structures || []).map(s => `
+                            <div class="flex justify-between text-sm">
+                                <span class="capitalize">${s.structure}</span>
+                                <span class="text-gray-500">${s.frequency}</span>
+                            </div>
+                        `).join('') || '<p class="text-gray-400 text-sm">No data</p>'}
+                    </div>
+                </div>
+                <div>
+                    <h4 class="font-medium text-gray-700 mb-2">&#127908; Tones</h4>
+                    <div class="space-y-2">
+                        ${(patterns.tones || []).map(t => `
+                            <div class="flex justify-between text-sm">
+                                <span class="capitalize">${t.tone}</span>
+                                <span class="text-gray-500">${t.frequency}</span>
+                            </div>
+                        `).join('') || '<p class="text-gray-400 text-sm">No data</p>'}
+                    </div>
+                </div>
+            `;
+
+            // Vocabulary profile
+            const vocab = analysis.vocabulary_profile || {};
+            document.getElementById('vocabulary-profile').innerHTML = `
+                <div class="grid md:grid-cols-2 gap-4">
+                    <div>
+                        <p class="text-sm text-gray-600 mb-2">Reading Level: <strong class="capitalize">${vocab.reading_level || 'N/A'}</strong></p>
+                        ${vocab.recurring_words?.length ? `
+                            <p class="text-sm text-gray-600 mb-1">Recurring Words:</p>
+                            <div class="flex flex-wrap gap-1">
+                                ${vocab.recurring_words.map(w => `<span class="px-2 py-0.5 bg-blue-100 text-blue-700 rounded text-xs">${w}</span>`).join('')}
+                            </div>
+                        ` : ''}
+                    </div>
+                    <div>
+                        ${vocab.power_phrases?.length ? `
+                            <p class="text-sm text-gray-600 mb-1">Power Phrases:</p>
+                            <div class="flex flex-wrap gap-1">
+                                ${vocab.power_phrases.map(p => `<span class="px-2 py-0.5 bg-purple-100 text-purple-700 rounded text-xs">${p}</span>`).join('')}
+                            </div>
+                        ` : ''}
+                    </div>
+                </div>
+            `;
+
+            // Formatting preferences
+            const format = analysis.formatting_preferences || {};
+            document.getElementById('formatting-prefs').innerHTML = `
+                <div class="text-sm space-y-2">
+                    <div class="flex justify-between"><span class="text-gray-600">Paragraph Length:</span><span>${format.typical_paragraph_length || 'N/A'}</span></div>
+                    <div class="flex justify-between"><span class="text-gray-600">Line Break Usage:</span><span class="capitalize">${format.line_break_usage || 'N/A'}</span></div>
+                </div>
+                <div class="text-sm space-y-2">
+                    <div class="flex justify-between"><span class="text-gray-600">Emoji Usage:</span><span class="capitalize">${format.emoji_usage || 'N/A'}</span></div>
+                    <div class="flex justify-between"><span class="text-gray-600">Whitespace Style:</span><span class="capitalize">${format.whitespace_style || 'N/A'}</span></div>
+                </div>
+            `;
+        }
+
+        async function generateStyleGuide() {
+            showToast('Generating style guide...');
+
+            try {
+                const contentType = currentFilter !== 'all' ? currentFilter : null;
+                const url = contentType
+                    ? `/api/swipe/style-guide?content_type=${contentType}`
+                    : '/api/swipe/style-guide';
+
+                const response = await Auth.fetchWithAuth(url);
+                const data = await response.json();
+
+                if (response.ok) {
+                    cachedStyleGuide = data;
+                    renderStyleGuide(data);
+
+                    // Switch to style guide tab
+                    document.querySelector('[data-tab="styleguide"]').click();
+                    showToast('Style guide generated!');
+                } else {
+                    showToast(data.detail || 'Failed to generate style guide');
+                }
+            } catch (err) {
+                console.error('Style guide error:', err);
+                showToast('Failed to generate style guide');
+            }
+        }
+
+        function renderStyleGuide(data) {
+            document.getElementById('styleguide-empty').classList.add('hidden');
+            document.getElementById('styleguide-results').classList.remove('hidden');
+
+            const guide = data.style_guide || {};
+
+            document.getElementById('voice-summary').textContent = guide.voice_summary || 'No voice summary available';
+
+            document.getElementById('do-list').innerHTML = (guide.do_list || []).map(item =>
+                `<li class="text-sm text-gray-700 flex items-start gap-2">
+                    <span class="text-green-500">&#10004;</span>
+                    ${item}
+                </li>`
+            ).join('') || '<li class="text-gray-400">No items</li>';
+
+            document.getElementById('dont-list').innerHTML = (guide.dont_list || []).map(item =>
+                `<li class="text-sm text-gray-700 flex items-start gap-2">
+                    <span class="text-red-500">&#10006;</span>
+                    ${item}
+                </li>`
+            ).join('') || '<li class="text-gray-400">No items</li>';
+
+            document.getElementById('hook-templates').innerHTML = (guide.hook_templates || []).map(template =>
+                `<div class="bg-gray-50 p-3 rounded-lg text-sm text-gray-700">${template}</div>`
+            ).join('') || '<p class="text-gray-400">No templates</p>';
+
+            document.getElementById('cta-templates').innerHTML = (guide.cta_templates || []).map(template =>
+                `<div class="bg-gray-50 p-3 rounded-lg text-sm text-gray-700">${template}</div>`
+            ).join('') || '<p class="text-gray-400">No templates</p>';
+
+            document.getElementById('prompt-injection').textContent = data.content_generation_prompt || 'No prompt injection available';
+        }
+
         async function loadPatterns() {
             try {
                 const response = await Auth.fetchWithAuth('/api/swipe/patterns');
@@ -289,6 +779,20 @@
             }
         }
 
+        async function loadCachedAnalysis() {
+            try {
+                const response = await Auth.fetchWithAuth('/api/swipe/collection-analysis');
+                const data = await response.json();
+
+                if (response.ok && data.has_analysis) {
+                    cachedAnalysis = data.analysis;
+                    renderCollectionAnalysis(data.analysis);
+                }
+            } catch (err) {
+                console.error('Failed to load cached analysis:', err);
+            }
+        }
+
         async function loadSwipes() {
             try {
                 const response = await Auth.fetchWithAuth('/api/swipe');
@@ -300,6 +804,7 @@
                     allSwipes = data.swipes || [];
                     renderSwipes();
                     loadPatterns();
+                    loadCachedAnalysis();
                 } else {
                     document.getElementById('empty-state').classList.remove('hidden');
                 }
@@ -310,6 +815,11 @@
                 `;
             }
         }
+
+        // Close modal on escape key
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') closeAnalysisModal();
+        });
 
         loadSwipes();
     </script>

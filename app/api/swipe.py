@@ -7,6 +7,12 @@ from pydantic import BaseModel
 from app.database import get_db
 from app.api.auth import get_current_user_id
 from app.services.ai_client import generate_content
+from app.services.swipe_analyzer import (
+    deep_analyze_swipe,
+    analyze_swipe_collection,
+    generate_style_guide,
+    get_swipe_style_context,
+)
 
 router = APIRouter()
 
@@ -214,6 +220,245 @@ async def get_learned_patterns(
             "common_techniques": [{"technique": t, "count": c} for t, c in technique_counts],
             "preferred_tones": [{"tone": t, "count": c} for t, c in tone_counts],
         }
+
+
+@router.post("/swipe/{swipe_id}/deep-analyze")
+async def deep_analyze_swipe_entry(
+    swipe_id: int,
+    user_id: int = Depends(get_current_user_id),
+):
+    """
+    Perform deep AI analysis on a single swipe file entry.
+
+    Extracts detailed patterns including hooks, structure, language,
+    engagement triggers, formatting, and generates a replication guide.
+    """
+    async with get_db() as db:
+        # Get the swipe entry
+        cursor = await db.execute(
+            """
+            SELECT id, content, content_type
+            FROM swipe_file
+            WHERE id = ? AND user_id = ?
+            """,
+            (swipe_id, user_id)
+        )
+        row = await cursor.fetchone()
+
+        if not row:
+            raise HTTPException(status_code=404, detail="Swipe not found")
+
+        content = row["content"]
+        content_type = row["content_type"]
+
+        # Check for existing analysis
+        cursor = await db.execute(
+            "SELECT analysis_data FROM swipe_analysis WHERE swipe_id = ?",
+            (swipe_id,)
+        )
+        existing = await cursor.fetchone()
+
+        if existing:
+            return {
+                "success": True,
+                "swipe_id": swipe_id,
+                "analysis": json.loads(existing["analysis_data"]),
+                "cached": True,
+            }
+
+    # Run deep analysis
+    analysis = await deep_analyze_swipe(content, content_type)
+
+    if "error" in analysis:
+        raise HTTPException(status_code=500, detail=analysis["error"])
+
+    # Save the analysis
+    async with get_db() as db:
+        await db.execute(
+            """
+            INSERT INTO swipe_analysis (swipe_id, user_id, analysis_data)
+            VALUES (?, ?, ?)
+            ON CONFLICT(swipe_id) DO UPDATE SET
+                analysis_data = excluded.analysis_data,
+                created_at = CURRENT_TIMESTAMP
+            """,
+            (swipe_id, user_id, json.dumps(analysis))
+        )
+        await db.commit()
+
+    return {
+        "success": True,
+        "swipe_id": swipe_id,
+        "analysis": analysis,
+        "cached": False,
+    }
+
+
+@router.post("/swipe/analyze-collection")
+async def analyze_swipe_collection_endpoint(
+    content_type: Optional[str] = None,
+    user_id: int = Depends(get_current_user_id),
+):
+    """
+    Analyze patterns across all swipes in the collection.
+
+    Identifies dominant patterns, vocabulary profile, formatting preferences,
+    and generates a comprehensive style guide.
+    """
+    async with get_db() as db:
+        if content_type:
+            cursor = await db.execute(
+                """
+                SELECT content, content_type
+                FROM swipe_file
+                WHERE user_id = ? AND content_type = ?
+                ORDER BY created_at DESC
+                LIMIT 20
+                """,
+                (user_id, content_type)
+            )
+        else:
+            cursor = await db.execute(
+                """
+                SELECT content, content_type
+                FROM swipe_file
+                WHERE user_id = ?
+                ORDER BY created_at DESC
+                LIMIT 20
+                """,
+                (user_id,)
+            )
+
+        rows = await cursor.fetchall()
+
+    if not rows:
+        raise HTTPException(status_code=404, detail="No swipes found to analyze")
+
+    swipes = [
+        {"content": row["content"], "content_type": row["content_type"]}
+        for row in rows
+    ]
+
+    # Run collection analysis
+    analysis = await analyze_swipe_collection(swipes, content_type)
+
+    if "error" in analysis:
+        raise HTTPException(status_code=500, detail=analysis["error"])
+
+    # Cache the collection analysis
+    async with get_db() as db:
+        await db.execute(
+            """
+            INSERT INTO swipe_collection_analysis
+                (user_id, content_type, analysis_data, swipe_count)
+            VALUES (?, ?, ?, ?)
+            """,
+            (user_id, content_type, json.dumps(analysis), len(swipes))
+        )
+        await db.commit()
+
+    return {
+        "success": True,
+        "content_type": content_type or "all",
+        "swipes_analyzed": len(swipes),
+        "analysis": analysis,
+    }
+
+
+@router.get("/swipe/collection-analysis")
+async def get_collection_analysis(
+    content_type: Optional[str] = None,
+    user_id: int = Depends(get_current_user_id),
+):
+    """
+    Get the most recent collection analysis for the user.
+
+    Returns cached analysis if available, otherwise returns empty.
+    """
+    async with get_db() as db:
+        if content_type:
+            cursor = await db.execute(
+                """
+                SELECT analysis_data, swipe_count, created_at
+                FROM swipe_collection_analysis
+                WHERE user_id = ? AND content_type = ?
+                ORDER BY created_at DESC
+                LIMIT 1
+                """,
+                (user_id, content_type)
+            )
+        else:
+            cursor = await db.execute(
+                """
+                SELECT analysis_data, swipe_count, content_type, created_at
+                FROM swipe_collection_analysis
+                WHERE user_id = ? AND content_type IS NULL
+                ORDER BY created_at DESC
+                LIMIT 1
+                """,
+                (user_id,)
+            )
+
+        row = await cursor.fetchone()
+
+    if not row:
+        return {
+            "success": True,
+            "has_analysis": False,
+            "message": "No collection analysis found. Run /swipe/analyze-collection first.",
+        }
+
+    return {
+        "success": True,
+        "has_analysis": True,
+        "content_type": content_type or row.get("content_type") or "all",
+        "swipe_count": row["swipe_count"],
+        "created_at": row["created_at"],
+        "analysis": json.loads(row["analysis_data"]),
+    }
+
+
+@router.get("/swipe/style-guide")
+async def get_style_guide(
+    content_type: Optional[str] = None,
+    user_id: int = Depends(get_current_user_id),
+):
+    """
+    Generate a comprehensive style guide from the user's swipe file.
+
+    Returns actionable do's, don'ts, templates, and a prompt injection string.
+    """
+    result = await generate_style_guide(user_id, content_type)
+
+    if "error" in result:
+        raise HTTPException(status_code=404, detail=result["error"])
+
+    return {
+        "success": True,
+        "content_type": content_type or "all",
+        **result,
+    }
+
+
+@router.get("/swipe/style-context")
+async def get_style_context(
+    content_type: str,
+    user_id: int = Depends(get_current_user_id),
+):
+    """
+    Get style context string for prompt injection.
+
+    This endpoint returns a formatted string that can be injected into
+    content generation prompts to help AI match the user's preferred style.
+    """
+    context = await get_swipe_style_context(user_id, content_type)
+
+    return {
+        "success": True,
+        "content_type": content_type,
+        "context": context,
+        "has_context": bool(context),
+    }
 
 
 async def extract_patterns(content: str, content_type: str) -> dict:

@@ -13,6 +13,7 @@ from app.services import settings_manager
 from app.api.brand_voice import get_user_brand_context, format_brand_voice_for_prompt
 from app.api.memory import get_user_memory_rules, format_memory_rules_for_prompt
 from app.api.swipe import get_user_swipe_patterns
+from app.services.swipe_analyzer import get_swipe_style_context
 
 settings = get_settings()
 
@@ -209,9 +210,13 @@ async def draft_linkedin_posts(
         if memory_rules:
             memory_rules_section = format_memory_rules_for_prompt(memory_rules)
 
-        swipe_patterns = await get_user_swipe_patterns(user_id, "linkedin")
-        if swipe_patterns:
-            swipe_patterns_section = swipe_patterns
+        # Use enhanced swipe style context (includes deep analysis and collection patterns)
+        swipe_patterns_section = await get_swipe_style_context(user_id, "linkedin")
+        if not swipe_patterns_section:
+            # Fall back to basic patterns
+            swipe_patterns = await get_user_swipe_patterns(user_id, "linkedin")
+            if swipe_patterns:
+                swipe_patterns_section = swipe_patterns
 
     # Add JSON output instruction
     full_prompt = brand_voice_section + memory_rules_section + swipe_patterns_section + prompt + f"""
@@ -304,9 +309,12 @@ async def draft_linkedin_quick(
         if memory_rules:
             memory_rules_section = format_memory_rules_for_prompt(memory_rules)
 
-        swipe_patterns = await get_user_swipe_patterns(user_id, "linkedin")
-        if swipe_patterns:
-            swipe_patterns_section = swipe_patterns
+        # Use enhanced swipe style context
+        swipe_patterns_section = await get_swipe_style_context(user_id, "linkedin")
+        if not swipe_patterns_section:
+            swipe_patterns = await get_user_swipe_patterns(user_id, "linkedin")
+            if swipe_patterns:
+                swipe_patterns_section = swipe_patterns
 
     prompt = f"""{brand_voice_section}{memory_rules_section}{swipe_patterns_section}
 Generate ONE compelling LinkedIn post using these content atoms.
@@ -407,9 +415,12 @@ async def draft_blog_post(
         if memory_rules:
             memory_rules_section = format_memory_rules_for_prompt(memory_rules)
 
-        swipe_patterns = await get_user_swipe_patterns(user_id, "blog")
-        if swipe_patterns:
-            swipe_patterns_section = swipe_patterns
+        # Use enhanced swipe style context
+        swipe_patterns_section = await get_swipe_style_context(user_id, "blog")
+        if not swipe_patterns_section:
+            swipe_patterns = await get_user_swipe_patterns(user_id, "blog")
+            if swipe_patterns:
+                swipe_patterns_section = swipe_patterns
 
     # Add JSON output instruction
     full_prompt = brand_voice_section + memory_rules_section + swipe_patterns_section + prompt + """
@@ -513,9 +524,12 @@ async def draft_email(
         if memory_rules:
             memory_rules_section = format_memory_rules_for_prompt(memory_rules)
 
-        swipe_patterns = await get_user_swipe_patterns(user_id, "email")
-        if swipe_patterns:
-            swipe_patterns_section = swipe_patterns
+        # Use enhanced swipe style context
+        swipe_patterns_section = await get_swipe_style_context(user_id, "email")
+        if not swipe_patterns_section:
+            swipe_patterns = await get_user_swipe_patterns(user_id, "email")
+            if swipe_patterns:
+                swipe_patterns_section = swipe_patterns
 
     # Add output instruction
     full_prompt = brand_voice_section + memory_rules_section + swipe_patterns_section + prompt + """
@@ -605,9 +619,14 @@ async def draft_email_sequence(
         if memory_rules:
             memory_rules_section = format_memory_rules_for_prompt(memory_rules)
 
-        swipe_patterns = await get_user_swipe_patterns(user_id, "email_sequence")
-        if swipe_patterns:
-            swipe_patterns_section = swipe_patterns
+        # Use enhanced swipe style context (try email_sequence first, then email)
+        swipe_patterns_section = await get_swipe_style_context(user_id, "email_sequence")
+        if not swipe_patterns_section:
+            swipe_patterns_section = await get_swipe_style_context(user_id, "email")
+        if not swipe_patterns_section:
+            swipe_patterns = await get_user_swipe_patterns(user_id, "email_sequence")
+            if swipe_patterns:
+                swipe_patterns_section = swipe_patterns
 
     variables = {
         "atoms": atoms_text,
