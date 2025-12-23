@@ -1,6 +1,6 @@
 """Content editing service - Step 2 of the pipeline."""
 import json
-from typing import Tuple
+from typing import Tuple, Union
 import google.generativeai as genai
 
 from app.config import get_settings, calculate_cost
@@ -13,22 +13,40 @@ settings = get_settings()
 
 async def edit_for_audience(
     draft_content: str,
-    persona_id: str,
+    target_persona: Union[str, dict],
     content_type: str = "linkedin",
 ) -> Tuple[dict, float]:
     """
     Edit content for target audience - simplify jargon, check guardrails, improve flow.
 
+    Args:
+        draft_content: The draft content to edit
+        target_persona: Either a persona ID string (legacy) or a combined persona dict
+        content_type: Type of content (linkedin, blog, email)
+
     Returns (edited_result, cost) tuple.
     """
-    persona = await get_persona(persona_id)
-    if not persona:
-        raise ValueError(f"Persona not found: {persona_id}")
+    # Handle both legacy (persona_id string) and new format (combined persona dict)
+    if isinstance(target_persona, str):
+        persona = await get_persona(target_persona)
+        if not persona:
+            raise ValueError(f"Persona not found: {target_persona}")
+        persona_title = persona["title"]
+        language_level = persona.get("language_level", "Professional")
+        priorities = persona.get("priorities", [])
+    else:
+        persona_title = target_persona.get("title", "Target Audience")
+        language_level = "Professional"  # Default for combined
+        priorities = target_persona.get("priorities", [])
+        # Add custom descriptions context if present
+        descriptions = target_persona.get("descriptions", [])
+        if descriptions:
+            persona_title += f" ({', '.join(descriptions[:1])}...)" if len(descriptions) > 1 else f" ({descriptions[0]})"
 
     variables = {
-        "persona_title": persona["title"],
-        "persona_language_level": persona.get("language_level", "Professional"),
-        "persona_priorities": ", ".join(persona["priorities"]),
+        "persona_title": persona_title,
+        "persona_language_level": language_level,
+        "persona_priorities": ", ".join(priorities) if priorities else "Not specified",
         "draft_from_step1": draft_content,
     }
 
@@ -97,10 +115,14 @@ OUTPUT FORMAT (valid JSON):
 
 async def batch_edit_content(
     drafts: list[dict],
-    persona_id: str,
+    target_persona: Union[str, dict],
 ) -> Tuple[list[dict], float]:
     """
     Edit multiple drafts for audience.
+
+    Args:
+        drafts: List of draft content dictionaries
+        target_persona: Either a persona ID string (legacy) or a combined persona dict
 
     Returns (edited_drafts, total_cost) tuple.
     """
@@ -115,7 +137,7 @@ async def batch_edit_content(
             edited_results.append(draft)
             continue
 
-        result, cost = await edit_for_audience(content, persona_id, content_type)
+        result, cost = await edit_for_audience(content, target_persona, content_type)
         total_cost += cost
 
         edited_draft = {

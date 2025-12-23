@@ -17,6 +17,7 @@ from app.services.library_manager import (
     save_atoms_to_db,
     save_outputs_to_db,
 )
+from app.services.persona_manager import resolve_personas, combine_personas_for_prompt
 from app.services.scoring import batch_score_content
 from app.utils.error_messages import format_pipeline_error, detect_error_type, get_error_message
 
@@ -100,7 +101,18 @@ async def process_job(job_id: str):
             return
 
         user_id = job_data["user_id"]
-        target_persona = job_data["target_persona"]
+        # Parse personas (now stored as JSON array)
+        target_persona_raw = job_data["target_persona"]
+        try:
+            personas_list = json.loads(target_persona_raw) if target_persona_raw else []
+        except json.JSONDecodeError:
+            # Backwards compatibility: treat as single persona ID
+            personas_list = [{"type": "preset", "id": target_persona_raw}]
+
+        # Resolve persona references to full persona objects
+        resolved_personas = await resolve_personas(personas_list)
+        combined_persona = combine_personas_for_prompt(resolved_personas)
+
         asset_types = json.loads(job_data["asset_types"]) if job_data["asset_types"] else ["linkedin"]
         asset_quantities = json.loads(job_data["asset_quantities"]) if job_data["asset_quantities"] else {}
         original_filename = job_data["original_filename"]
@@ -228,7 +240,7 @@ async def process_job(job_id: str):
         total_cost = 0
 
         atoms, atom_cost = await atomize_content(
-            cleaned_transcript, target_persona, job_id, user_id
+            cleaned_transcript, combined_persona, job_id, user_id
         )
         total_cost += atom_cost
 
@@ -249,7 +261,7 @@ async def process_job(job_id: str):
         if "linkedin" in asset_types:
             count = asset_quantities.get("linkedin", 3)
             linkedin_drafts, li_cost = await draft_linkedin_posts(
-                atoms, target_persona, count
+                atoms, combined_persona, count
             )
             total_cost += li_cost
 
@@ -263,7 +275,7 @@ async def process_job(job_id: str):
 
         # Generate blog post if requested
         if "blog" in asset_types:
-            blog_draft, blog_cost = await draft_blog_post(atoms, target_persona)
+            blog_draft, blog_cost = await draft_blog_post(atoms, combined_persona)
             total_cost += blog_cost
 
             all_drafts.append({
@@ -276,7 +288,7 @@ async def process_job(job_id: str):
 
         # Generate email if requested
         if "email" in asset_types:
-            email_draft, email_cost = await draft_email(atoms, target_persona)
+            email_draft, email_cost = await draft_email(atoms, combined_persona)
             total_cost += email_cost
 
             all_drafts.append({
@@ -294,7 +306,7 @@ async def process_job(job_id: str):
         )
         total_cost = 0
 
-        edited_drafts, edit_cost = await batch_edit_content(all_drafts, target_persona)
+        edited_drafts, edit_cost = await batch_edit_content(all_drafts, combined_persona)
         total_cost += edit_cost
 
         # ======== STEP 4: FACT-CHECKING ========
@@ -316,10 +328,8 @@ async def process_job(job_id: str):
         )
         total_cost = 0
 
-        # Get persona title for context
-        from app.services.persona_manager import get_persona
-        persona = await get_persona(target_persona)
-        persona_title = persona.get("title", "") if persona else ""
+        # Get persona title for context (use combined_persona)
+        persona_title = combined_persona.get("title", "Target Audience")
 
         scored_drafts, score_cost = await batch_score_content(
             factchecked_drafts, persona_title

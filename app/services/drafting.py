@@ -137,20 +137,38 @@ async def call_llm(prompt: str, model: str, max_tokens: int) -> Tuple[str, int, 
 
 async def draft_linkedin_posts(
     atoms: list[dict],
-    persona_id: str,
+    target_persona: Union[str, dict],
     count: int = 3,
 ) -> Tuple[list[dict], float]:
     """
     Generate LinkedIn post drafts using Claude.
 
+    Args:
+        atoms: List of content atoms to use
+        target_persona: Either a persona ID string (legacy) or a combined persona dict
+        count: Number of variations to generate
+
     Returns (drafts_list, cost) tuple.
     """
-    persona = await get_persona(persona_id)
-    if not persona:
-        raise ValueError(f"Persona not found: {persona_id}")
+    # Handle both legacy (persona_id string) and new format (combined persona dict)
+    if isinstance(target_persona, str):
+        persona = await get_persona(target_persona)
+        if not persona:
+            raise ValueError(f"Persona not found: {target_persona}")
+        persona_title = persona["title"]
+        pain_points = persona.get("pain_points", [])
+        priorities = persona.get("priorities", [])
+        descriptions = []
+        persona_key = target_persona
+    else:
+        persona_title = target_persona.get("title", "Target Audience")
+        pain_points = target_persona.get("pain_points", [])
+        priorities = target_persona.get("priorities", [])
+        descriptions = target_persona.get("descriptions", [])
+        persona_key = "combined"
 
     # Select best atoms for LinkedIn
-    selected_atoms = select_atoms_for_content_type(atoms, "linkedin", persona_id, count=count * 2)
+    selected_atoms = select_atoms_for_content_type(atoms, "linkedin", persona_key, count=count * 2)
 
     # Format atoms for prompt
     atoms_text = "\n".join([
@@ -158,11 +176,17 @@ async def draft_linkedin_posts(
         for a in selected_atoms
     ])
 
+    # Build pain points and priorities with custom descriptions
+    pain_points_str = ", ".join(pain_points) if pain_points else "Not specified"
+    priorities_str = ", ".join(priorities) if priorities else "Not specified"
+    if descriptions:
+        pain_points_str += "\n\nAdditional context: " + " | ".join(descriptions)
+
     variables = {
         "selected_atoms_for_linkedin": atoms_text,
-        "persona_title": persona["title"],
-        "persona_priorities": ", ".join(persona["priorities"]),
-        "persona_pain_points": ", ".join(persona["pain_points"]),
+        "persona_title": persona_title,
+        "persona_priorities": priorities_str,
+        "persona_pain_points": pain_points_str,
     }
 
     prompt, config = await get_rendered_prompt("linkedin_draft", variables)
@@ -212,16 +236,29 @@ OUTPUT FORMAT (valid JSON):
 
 async def draft_blog_post(
     atoms: list[dict],
-    persona_id: str,
+    target_persona: Union[str, dict],
 ) -> Tuple[dict, float]:
     """
     Generate a blog post draft using Claude.
 
+    Args:
+        atoms: List of content atoms to use
+        target_persona: Either a persona ID string (legacy) or a combined persona dict
+
     Returns (draft, cost) tuple.
     """
-    persona = await get_persona(persona_id)
-    if not persona:
-        raise ValueError(f"Persona not found: {persona_id}")
+    # Handle both legacy (persona_id string) and new format (combined persona dict)
+    if isinstance(target_persona, str):
+        persona = await get_persona(target_persona)
+        if not persona:
+            raise ValueError(f"Persona not found: {target_persona}")
+        persona_title = persona["title"]
+    else:
+        persona_title = target_persona.get("title", "Target Audience")
+        # Add custom descriptions context if present
+        descriptions = target_persona.get("descriptions", [])
+        if descriptions:
+            persona_title += f" ({', '.join(descriptions[:2])})"
 
     # Group atoms by type
     grouped = group_atoms_by_type(atoms)
@@ -238,7 +275,7 @@ async def draft_blog_post(
         "solution_atoms": format_atoms(grouped["solution"]),
         "data_atoms": format_atoms(grouped["data"]),
         "story_atoms": format_atoms(grouped["story"]),
-        "persona_title": persona["title"],
+        "persona_title": persona_title,
     }
 
     prompt, config = await get_rendered_prompt("blog_draft", variables)
@@ -279,30 +316,53 @@ OUTPUT FORMAT (valid JSON):
 
 async def draft_email(
     atoms: list[dict],
-    persona_id: str,
+    target_persona: Union[str, dict],
 ) -> Tuple[dict, float]:
     """
     Generate an email draft using Claude.
 
+    Args:
+        atoms: List of content atoms to use
+        target_persona: Either a persona ID string (legacy) or a combined persona dict
+
     Returns (draft, cost) tuple.
     """
-    persona = await get_persona(persona_id)
-    if not persona:
-        raise ValueError(f"Persona not found: {persona_id}")
+    # Handle both legacy (persona_id string) and new format (combined persona dict)
+    if isinstance(target_persona, str):
+        persona = await get_persona(target_persona)
+        if not persona:
+            raise ValueError(f"Persona not found: {target_persona}")
+        persona_title = persona["title"]
+        pain_points = persona.get("pain_points", [])
+        priorities = persona.get("priorities", [])
+        descriptions = []
+        persona_key = target_persona
+    else:
+        persona_title = target_persona.get("title", "Target Audience")
+        pain_points = target_persona.get("pain_points", [])
+        priorities = target_persona.get("priorities", [])
+        descriptions = target_persona.get("descriptions", [])
+        persona_key = "combined"
 
     # Select atoms for email
-    selected_atoms = select_atoms_for_content_type(atoms, "email", persona_id, count=4)
+    selected_atoms = select_atoms_for_content_type(atoms, "email", persona_key, count=4)
 
     atoms_text = "\n".join([
         f"- [{a['atom_type'].upper()}] {a['content']}"
         for a in selected_atoms
     ])
 
+    # Build pain points and priorities with custom descriptions
+    pain_points_str = ", ".join(pain_points) if pain_points else "Not specified"
+    priorities_str = ", ".join(priorities) if priorities else "Not specified"
+    if descriptions:
+        pain_points_str += "\n\nAdditional context: " + " | ".join(descriptions)
+
     variables = {
         "selected_atoms": atoms_text,
-        "persona_title": persona["title"],
-        "persona_priorities": ", ".join(persona["priorities"]),
-        "persona_pain_points": ", ".join(persona["pain_points"]),
+        "persona_title": persona_title,
+        "persona_priorities": priorities_str,
+        "persona_pain_points": pain_points_str,
     }
 
     prompt, config = await get_rendered_prompt("email_draft", variables)

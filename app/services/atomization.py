@@ -1,7 +1,7 @@
 """Content atomization service - Step 0 of the pipeline."""
 import json
 import uuid
-from typing import Tuple
+from typing import Tuple, Union
 import google.generativeai as genai
 
 from app.config import get_settings, calculate_cost
@@ -14,28 +14,58 @@ settings = get_settings()
 
 async def atomize_content(
     cleaned_transcript: str,
-    target_persona_id: str,
+    target_persona: Union[str, dict],
     job_id: str,
     user_id: int,
 ) -> Tuple[list[dict], float]:
     """
     Extract reusable content atoms from transcript.
 
+    Args:
+        cleaned_transcript: The content to atomize
+        target_persona: Either a persona ID string (legacy) or a combined persona dict
+                       with keys: title, pain_points, priorities, descriptions
+        job_id: The job ID for tracking
+        user_id: The user ID for tracking
+
     Atoms are categorized as: data, insight, story, problem, solution.
     Each atom is scored for relevance to the target persona.
 
     Returns (atoms_list, cost) tuple.
     """
-    # Get persona details
-    persona = await get_persona(target_persona_id)
-    if not persona:
-        raise ValueError(f"Persona not found: {target_persona_id}")
+    # Handle both legacy (persona_id string) and new format (combined persona dict)
+    if isinstance(target_persona, str):
+        # Legacy format: look up persona by ID
+        persona = await get_persona(target_persona)
+        if not persona:
+            raise ValueError(f"Persona not found: {target_persona}")
+        persona_title = persona["title"]
+        pain_points = persona.get("pain_points", [])
+        priorities = persona.get("priorities", [])
+        descriptions = []
+        persona_key = target_persona
+    else:
+        # New format: combined persona dict
+        persona_title = target_persona.get("title", "Target Audience")
+        pain_points = target_persona.get("pain_points", [])
+        priorities = target_persona.get("priorities", [])
+        descriptions = target_persona.get("descriptions", [])
+        persona_key = "combined"
+
+    # Build pain points and priorities strings
+    pain_points_str = ", ".join(pain_points) if pain_points else "Not specified"
+    priorities_str = ", ".join(priorities) if priorities else "Not specified"
+
+    # Add custom descriptions if present
+    extra_context = ""
+    if descriptions:
+        extra_context = "\n\nADDITIONAL AUDIENCE CONTEXT:\n" + "\n".join(f"- {d}" for d in descriptions)
 
     # Get and render the atomization prompt
     variables = {
-        "target_persona_title": persona["title"],
-        "persona_pain_points": ", ".join(persona["pain_points"]),
-        "persona_priorities": ", ".join(persona["priorities"]),
+        "target_persona_title": persona_title,
+        "persona_pain_points": pain_points_str + extra_context,
+        "persona_priorities": priorities_str,
         "cleaned_transcript": cleaned_transcript,
     }
 
@@ -113,7 +143,7 @@ Return valid JSON with this structure:
             "source_location": atom_data.get("source_location"),
             "tags": atom_data.get("tags", []),
             "persona_relevance": {
-                target_persona_id: atom_data.get("relevance_to_persona", 3)
+                persona_key: atom_data.get("relevance_to_persona", 3)
             },
             "why_relevant": atom_data.get("why_relevant"),
         }

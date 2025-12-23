@@ -55,7 +55,7 @@ async def upload_content(
     request: Request,
     background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
-    target_persona: str = Form(...),
+    target_personas: str = Form(...),
     asset_types: str = Form(default='["linkedin", "blog"]'),
     asset_quantities: str = Form(default='{"linkedin": 3, "blog": 1}'),
     processing_mode: str = Form(default="autopilot"),
@@ -93,10 +93,18 @@ async def upload_content(
     try:
         asset_types_list = json.loads(asset_types)
         asset_quantities_dict = json.loads(asset_quantities)
+        personas_list = json.loads(target_personas)
     except json.JSONDecodeError:
         raise HTTPException(
             status_code=400,
-            detail="Invalid JSON in asset_types or asset_quantities"
+            detail="Invalid JSON in asset_types, asset_quantities, or target_personas"
+        )
+
+    # Validate personas
+    if not personas_list or len(personas_list) == 0:
+        raise HTTPException(
+            status_code=400,
+            detail="At least one target persona is required"
         )
 
     # Create job ID
@@ -112,7 +120,7 @@ async def upload_content(
         content = await file.read()
         await f.write(content)
 
-    # Create job in database
+    # Create job in database (target_persona now stores JSON array)
     async with get_db() as db:
         await db.execute(
             """
@@ -129,7 +137,7 @@ async def upload_content(
                 file.filename,
                 file_type,
                 file_size,
-                target_persona,
+                json.dumps(personas_list),
                 json.dumps(asset_types_list),
                 json.dumps(asset_quantities_dict),
                 processing_mode,
@@ -158,7 +166,7 @@ async def upload_text(
     request: Request,
     background_tasks: BackgroundTasks,
     content: str = Form(...),
-    target_persona: str = Form(...),
+    target_personas: str = Form(...),
     asset_types: str = Form(default='["linkedin", "blog"]'),
     asset_quantities: str = Form(default='{"linkedin": 3, "blog": 1}'),
     processing_mode: str = Form(default="autopilot"),
@@ -174,10 +182,18 @@ async def upload_text(
     try:
         asset_types_list = json.loads(asset_types)
         asset_quantities_dict = json.loads(asset_quantities)
+        personas_list = json.loads(target_personas)
     except json.JSONDecodeError:
         raise HTTPException(
             status_code=400,
-            detail="Invalid JSON in asset_types or asset_quantities"
+            detail="Invalid JSON in asset_types, asset_quantities, or target_personas"
+        )
+
+    # Validate personas
+    if not personas_list or len(personas_list) == 0:
+        raise HTTPException(
+            status_code=400,
+            detail="At least one target persona is required"
         )
 
     # Create job ID
@@ -192,7 +208,7 @@ async def upload_text(
     async with aiofiles.open(file_path, "w") as f:
         await f.write(content)
 
-    # Create job in database
+    # Create job in database (target_persona now stores JSON array)
     async with get_db() as db:
         await db.execute(
             """
@@ -209,7 +225,7 @@ async def upload_text(
                 content_name,
                 "text",
                 len(content.encode("utf-8")),
-                target_persona,
+                json.dumps(personas_list),
                 json.dumps(asset_types_list),
                 json.dumps(asset_quantities_dict),
                 processing_mode,

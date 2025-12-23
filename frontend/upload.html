@@ -73,16 +73,27 @@
                     placeholder="Content name (optional)">
             </div>
 
-            <!-- Target Persona -->
+            <!-- Target Personas (Multi-select) -->
             <div>
-                <label class="block text-sm font-medium text-gray-700 mb-2">Target Persona</label>
-                <select id="target-persona" required
-                    class="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
-                    <option value="">Select a persona...</option>
-                    <option value="ceo_longterm_care">CEO of Long-Term Care Facility</option>
-                    <option value="don_memory_care">Director of Nursing (Memory Care)</option>
-                    <option value="marketing_director">Marketing Director (Senior Living)</option>
-                </select>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Target Personas (select one or more)</label>
+                <div id="personas-container" class="space-y-2 mb-3">
+                    <p class="text-sm text-gray-500">Loading personas...</p>
+                </div>
+
+                <!-- Custom Persona Option -->
+                <div class="mt-4 border-t pt-4">
+                    <label class="flex items-center">
+                        <input type="checkbox" id="use-custom-persona"
+                            class="h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500">
+                        <span class="ml-2 font-medium">Add Custom Persona</span>
+                    </label>
+                    <div id="custom-persona-section" class="hidden mt-3">
+                        <textarea id="custom-persona-text" rows="4"
+                            class="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                            placeholder="Describe your target audience. Example:&#10;&#10;HR Directors at mid-size tech companies (500-2000 employees) who are focused on employee retention, reducing turnover costs, and building strong company culture. They prefer data-driven insights and actionable strategies."></textarea>
+                        <p class="text-sm text-gray-500 mt-1">Describe who your content is for - their role, challenges, priorities, and preferences</p>
+                    </div>
+                </div>
             </div>
 
             <!-- Asset Types -->
@@ -151,6 +162,49 @@
 
         let uploadMode = 'file';
         let selectedFile = null;
+        let availablePersonas = [];
+
+        // Load personas from API
+        async function loadPersonas() {
+            try {
+                const response = await Auth.fetchWithAuth('/api/personas');
+                const data = await response.json();
+                availablePersonas = data.personas || [];
+                renderPersonaCheckboxes();
+            } catch (err) {
+                console.error('Failed to load personas:', err);
+                document.getElementById('personas-container').innerHTML = `
+                    <p class="text-red-500 text-sm">Failed to load personas. Please refresh the page.</p>
+                `;
+            }
+        }
+
+        function renderPersonaCheckboxes() {
+            const container = document.getElementById('personas-container');
+            if (availablePersonas.length === 0) {
+                container.innerHTML = '<p class="text-gray-500 text-sm">No personas available. Add a custom persona below.</p>';
+                return;
+            }
+
+            container.innerHTML = availablePersonas.map(persona => `
+                <label class="flex items-start p-3 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer">
+                    <input type="checkbox" name="persona" value="${persona.id}"
+                        class="h-4 w-4 mt-0.5 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500">
+                    <div class="ml-3">
+                        <span class="font-medium text-gray-900">${persona.title}</span>
+                        <p class="text-sm text-gray-500">${persona.pain_points ? persona.pain_points.slice(0, 2).join(', ') : ''}</p>
+                    </div>
+                </label>
+            `).join('');
+        }
+
+        // Toggle custom persona section
+        document.getElementById('use-custom-persona').addEventListener('change', (e) => {
+            document.getElementById('custom-persona-section').classList.toggle('hidden', !e.target.checked);
+        });
+
+        // Load personas on page load
+        loadPersonas();
 
         function showTab(tab) {
             uploadMode = tab;
@@ -212,10 +266,22 @@
             const errorDiv = document.getElementById('error-message');
             errorDiv.classList.add('hidden');
 
-            // Validate
-            const persona = document.getElementById('target-persona').value;
-            if (!persona) {
-                errorDiv.textContent = 'Please select a target persona';
+            // Collect selected personas
+            const selectedPersonas = [];
+            document.querySelectorAll('input[name="persona"]:checked').forEach(cb => {
+                selectedPersonas.push({ type: 'preset', id: cb.value });
+            });
+
+            // Add custom persona if checked and has content
+            const useCustom = document.getElementById('use-custom-persona').checked;
+            const customText = document.getElementById('custom-persona-text').value.trim();
+            if (useCustom && customText) {
+                selectedPersonas.push({ type: 'custom', description: customText });
+            }
+
+            // Validate at least one persona selected
+            if (selectedPersonas.length === 0) {
+                errorDiv.textContent = 'Please select at least one target persona or add a custom persona';
                 errorDiv.classList.remove('hidden');
                 return;
             }
@@ -266,7 +332,7 @@
                 if (uploadMode === 'file') {
                     const formData = new FormData();
                     formData.append('file', selectedFile);
-                    formData.append('target_persona', persona);
+                    formData.append('target_personas', JSON.stringify(selectedPersonas));
                     formData.append('asset_types', JSON.stringify(assetTypes));
                     formData.append('asset_quantities', JSON.stringify(assetQuantities));
                     formData.append('campaign_name', document.getElementById('campaign-name').value);
@@ -281,7 +347,7 @@
                 } else {
                     const formData = new FormData();
                     formData.append('content', document.getElementById('text-content').value);
-                    formData.append('target_persona', persona);
+                    formData.append('target_personas', JSON.stringify(selectedPersonas));
                     formData.append('asset_types', JSON.stringify(assetTypes));
                     formData.append('asset_quantities', JSON.stringify(assetQuantities));
                     formData.append('campaign_name', document.getElementById('campaign-name').value);

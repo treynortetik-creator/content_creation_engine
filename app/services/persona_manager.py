@@ -59,6 +59,111 @@ async def get_persona(persona_id: str) -> Optional[dict]:
     return None
 
 
+def create_custom_persona(description: str) -> dict:
+    """Create a persona from a custom description."""
+    return {
+        "id": "custom",
+        "title": "Custom Target Audience",
+        "description": description,
+        "pain_points": [],  # Will be inferred by AI from description
+        "priorities": [],
+        "language_level": "Professional",
+        "content_preferences": {
+            "length": "Medium",
+            "data_density": "Moderate",
+            "tone": "Professional"
+        }
+    }
+
+
+async def resolve_personas(personas_list: list) -> list[dict]:
+    """
+    Resolve a list of persona references to full persona objects.
+
+    Input format:
+    [
+        {"type": "preset", "id": "ceo_longterm_care"},
+        {"type": "custom", "description": "HR Directors at..."}
+    ]
+
+    Returns list of full persona dictionaries.
+    """
+    resolved = []
+
+    for item in personas_list:
+        if item.get("type") == "preset":
+            # Look up preset persona by ID
+            persona = await get_persona(item.get("id"))
+            if persona:
+                resolved.append(persona)
+        elif item.get("type") == "custom":
+            # Create custom persona from description
+            description = item.get("description", "")
+            if description:
+                custom = create_custom_persona(description)
+                resolved.append(custom)
+
+    return resolved
+
+
+def combine_personas_for_prompt(personas: list[dict]) -> dict:
+    """
+    Combine multiple personas into a single context for the AI prompt.
+
+    Returns a dict with combined information for use in prompts.
+    """
+    if not personas:
+        return {
+            "title": "General Audience",
+            "pain_points": [],
+            "priorities": [],
+            "descriptions": []
+        }
+
+    if len(personas) == 1:
+        persona = personas[0]
+        return {
+            "title": persona.get("title", "Target Audience"),
+            "pain_points": persona.get("pain_points", []),
+            "priorities": persona.get("priorities", []),
+            "descriptions": [persona.get("description", "")] if persona.get("description") else []
+        }
+
+    # Multiple personas - combine them
+    titles = [p.get("title", "") for p in personas if p.get("title")]
+    all_pain_points = []
+    all_priorities = []
+    descriptions = []
+
+    for p in personas:
+        all_pain_points.extend(p.get("pain_points", []))
+        all_priorities.extend(p.get("priorities", []))
+        if p.get("description"):
+            descriptions.append(p.get("description"))
+
+    # Deduplicate while preserving order
+    seen_pain = set()
+    unique_pain = []
+    for pp in all_pain_points:
+        if pp.lower() not in seen_pain:
+            seen_pain.add(pp.lower())
+            unique_pain.append(pp)
+
+    seen_pri = set()
+    unique_pri = []
+    for pr in all_priorities:
+        if pr.lower() not in seen_pri:
+            seen_pri.add(pr.lower())
+            unique_pri.append(pr)
+
+    return {
+        "title": " & ".join(titles) if titles else "Multiple Target Audiences",
+        "pain_points": unique_pain,
+        "priorities": unique_pri,
+        "descriptions": descriptions
+    }
+
+
 async def list_personas() -> list[dict]:
     """List all available personas."""
     personas = await load_personas()
