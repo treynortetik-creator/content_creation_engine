@@ -108,6 +108,7 @@ async def init_db():
                 citations JSON,
                 warnings JSON,
                 quality_scores JSON,
+                hook_variations JSON,
                 user_edits INTEGER DEFAULT 0,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (job_id) REFERENCES jobs(id)
@@ -177,6 +178,13 @@ async def init_db():
             await db.execute("SELECT preview_output FROM jobs LIMIT 1")
         except aiosqlite.OperationalError:
             await db.execute("ALTER TABLE jobs ADD COLUMN preview_output TEXT")
+            await db.commit()
+
+        # Migration: Add hook_variations column to outputs if missing
+        try:
+            await db.execute("SELECT hook_variations FROM outputs LIMIT 1")
+        except aiosqlite.OperationalError:
+            await db.execute("ALTER TABLE outputs ADD COLUMN hook_variations JSON")
             await db.commit()
 
         # Create default user if not exists

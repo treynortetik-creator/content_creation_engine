@@ -19,6 +19,8 @@ from app.services.library_manager import (
 )
 from app.services.persona_manager import resolve_personas, combine_personas_for_prompt
 from app.services.scoring import batch_score_content
+from app.services.hook_generator import generate_hook_variations, split_hook_and_body, combine_hooks_with_body
+from app.api.brand_voice import get_user_brand_context
 from app.utils.error_messages import format_pipeline_error, detect_error_type, get_error_message
 
 settings = get_settings()
@@ -394,6 +396,52 @@ async def process_job(job_id: str):
             factchecked_drafts, persona_title
         )
         total_cost += score_cost
+
+        # ======== STEP 6: HOOK VARIATIONS (LinkedIn only) ========
+        if "linkedin" in asset_types:
+            try:
+                await update_job_status(
+                    job_id, JobStatus.FACTCHECKING,
+                    "Step 6: Generating hook variations", 96, total_cost
+                )
+                total_cost = 0
+
+                # Get brand context for hook generation
+                brand_context = await get_user_brand_context(user_id)
+
+                # Generate hook variations for each LinkedIn post
+                for draft in scored_drafts:
+                    if draft.get("content_type") == "linkedin":
+                        final_content = draft.get("step3_final") or draft.get("step2_edited") or draft.get("content", "")
+                        if final_content:
+                            # Split into hook and body
+                            original_hook, body = split_hook_and_body(final_content)
+
+                            # Generate 4 additional hooks
+                            additional_hooks, hook_cost = await generate_hook_variations(
+                                atoms=atoms[:5],  # Use first 5 atoms for context
+                                post_body=body,
+                                persona=combined_persona,
+                                brand_context=brand_context,
+                                count=4
+                            )
+                            total_cost += hook_cost
+
+                            # Combine original + new hooks with body
+                            all_hooks = [original_hook] + additional_hooks
+                            all_variations = combine_hooks_with_body(all_hooks, body)
+
+                            # Store hook variations
+                            draft["hook_variations"] = {
+                                "hooks": all_hooks,
+                                "body": body,
+                                "full_variations": all_variations,
+                                "selected_index": 0
+                            }
+
+            except Exception as hook_error:
+                # Don't fail the job if hook generation fails
+                print(f"Hook variation generation failed for job {job_id}: {hook_error}")
 
         # ======== SAVE RESULTS ========
         await save_outputs_to_db(scored_drafts, job_id)

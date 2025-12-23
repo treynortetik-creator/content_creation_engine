@@ -207,6 +207,95 @@
             `;
         }
 
+        // Track selected hooks for each output
+        let selectedHooks = {};
+
+        function selectHook(outputId, hookIndex) {
+            selectedHooks[outputId] = hookIndex;
+
+            // Update radio buttons
+            document.querySelectorAll(`input[name="hook-${outputId}"]`).forEach((radio, idx) => {
+                radio.checked = idx === hookIndex;
+            });
+
+            // Update hook option styling
+            document.querySelectorAll(`#hook-options-${outputId} .hook-option`).forEach((option, idx) => {
+                if (idx === hookIndex) {
+                    option.classList.add('border-blue-500', 'bg-blue-50');
+                    option.classList.remove('border-gray-200');
+                } else {
+                    option.classList.remove('border-blue-500', 'bg-blue-50');
+                    option.classList.add('border-gray-200');
+                }
+            });
+
+            // Update preview content
+            const previewEl = document.getElementById(`preview-${outputId}`);
+            const hookData = window.hookVariationsData[outputId];
+            if (previewEl && hookData && hookData.full_variations) {
+                previewEl.textContent = hookData.full_variations[hookIndex] || '';
+            }
+        }
+
+        function copySelectedHook(outputId) {
+            const hookData = window.hookVariationsData[outputId];
+            const selectedIndex = selectedHooks[outputId] || 0;
+            const content = hookData?.full_variations?.[selectedIndex] || '';
+            copyToClipboard(content);
+        }
+
+        // Store hook variations data globally
+        window.hookVariationsData = {};
+
+        function renderHookSelector(output, outputId) {
+            const hookVariations = output.hook_variations;
+            if (!hookVariations || !hookVariations.hooks || hookVariations.hooks.length <= 1) {
+                return '';
+            }
+
+            // Store for later use
+            window.hookVariationsData[outputId] = hookVariations;
+            selectedHooks[outputId] = 0;
+
+            const hookTypes = ['Original', 'Question', 'Stat/Data', 'Story', 'Bold Claim'];
+
+            return `
+                <div class="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                    <div class="flex items-center justify-between mb-3">
+                        <label class="font-semibold text-blue-800">Choose Your Hook:</label>
+                        <span class="text-xs text-blue-600">5 variations available</span>
+                    </div>
+                    <div class="space-y-2" id="hook-options-${outputId}">
+                        ${hookVariations.hooks.map((hook, idx) => `
+                            <div class="hook-option p-3 border-2 rounded-lg cursor-pointer transition-colors ${idx === 0 ? 'border-blue-500 bg-blue-50' : 'border-gray-200 bg-white hover:border-blue-300'}"
+                                 onclick="selectHook('${outputId}', ${idx})">
+                                <div class="flex items-start gap-3">
+                                    <input type="radio" name="hook-${outputId}" value="${idx}" ${idx === 0 ? 'checked' : ''} class="mt-1">
+                                    <div class="flex-1">
+                                        <span class="text-xs font-medium text-gray-500 uppercase">${hookTypes[idx] || 'Variation ' + (idx + 1)}</span>
+                                        <p class="text-sm text-gray-800 mt-1">${escapeHtml(hook)}</p>
+                                    </div>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+
+                    <div class="mt-4 pt-4 border-t border-blue-200">
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="text-sm font-medium text-blue-800">Full Post Preview:</span>
+                            <button onclick="copySelectedHook('${outputId}')"
+                                class="text-sm bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700 transition">
+                                Copy Selected
+                            </button>
+                        </div>
+                        <div class="bg-white p-4 rounded border border-blue-100 max-h-60 overflow-y-auto">
+                            <pre id="preview-${outputId}" class="whitespace-pre-wrap text-gray-700 text-sm font-sans">${escapeHtml(hookVariations.full_variations?.[0] || '')}</pre>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
         function renderOutputs(outputs) {
             const container = document.getElementById('outputs-container');
             container.innerHTML = '';
@@ -247,8 +336,10 @@
                     const item = document.createElement('div');
                     item.className = 'p-6';
 
+                    const outputId = `${type}-${output.variation_number || index + 1}`;
                     const content = output.step3_final || output.step2_edited || output.step1_draft || '';
                     const hasWarnings = output.warnings && output.warnings.length > 0;
+                    const hasHookVariations = output.hook_variations && output.hook_variations.hooks && output.hook_variations.hooks.length > 1;
 
                     item.innerHTML = `
                         <div class="flex justify-between items-start mb-4">
@@ -256,15 +347,22 @@
                                 <span class="text-sm font-medium text-gray-500">Variation ${output.variation_number || index + 1}</span>
                                 ${renderScoreBadge(output.quality_scores)}
                                 ${hasWarnings ? '<span class="text-xs px-2 py-1 bg-yellow-100 text-yellow-700 rounded">Has Warnings</span>' : ''}
+                                ${hasHookVariations ? '<span class="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded">5 Hook Options</span>' : ''}
                             </div>
-                            <button onclick="copyToClipboard(\`${content.replace(/`/g, '\\`').replace(/\$/g, '\\$')}\`)"
-                                class="text-indigo-600 hover:underline text-sm">
-                                Copy
-                            </button>
+                            ${!hasHookVariations ? `
+                                <button onclick="copyToClipboard(\`${content.replace(/`/g, '\\`').replace(/\$/g, '\\$')}\`)"
+                                    class="text-indigo-600 hover:underline text-sm">
+                                    Copy
+                                </button>
+                            ` : ''}
                         </div>
-                        <div class="prose max-w-none">
-                            <div class="whitespace-pre-wrap text-gray-700">${escapeHtml(content)}</div>
-                        </div>
+
+                        ${hasHookVariations ? renderHookSelector(output, outputId) : `
+                            <div class="prose max-w-none">
+                                <div class="whitespace-pre-wrap text-gray-700">${escapeHtml(content)}</div>
+                            </div>
+                        `}
+
                         ${hasWarnings ? `
                             <div class="mt-4 p-3 bg-yellow-50 rounded text-sm">
                                 <strong class="text-yellow-700">Warnings:</strong>
