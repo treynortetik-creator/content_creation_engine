@@ -13,7 +13,7 @@ from slowapi.errors import RateLimitExceeded
 
 from app.config import get_settings
 from app.database import init_db
-from app.api import upload, jobs, library, admin, auth, personas, brand_voice, memory, swipe, feedback, analytics, export, integrations, batch, remix, calendar, autopilot, content_edit
+from app.api import upload, jobs, library, admin, auth, personas, brand_voice, memory, swipe, feedback, analytics, export, integrations, batch, remix, calendar, autopilot, content_edit, image_prompts
 from app.api import admin_views
 from app.services.autopilot.scheduler import scheduler
 
@@ -102,6 +102,7 @@ app.include_router(remix.router, prefix="/api", tags=["remix"])
 app.include_router(calendar.router, prefix="/api", tags=["calendar"])
 app.include_router(autopilot.router, prefix="/api", tags=["autopilot"])
 app.include_router(content_edit.router, prefix="/api", tags=["content-edit"])
+app.include_router(image_prompts.router, prefix="/api", tags=["image-prompts"])
 # Register admin views FIRST so HTML pages take priority over API responses
 app.include_router(admin_views.router, prefix="/admin", tags=["admin-views"])
 app.include_router(admin.router, prefix="/api/admin", tags=["admin-api"])

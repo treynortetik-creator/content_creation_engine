@@ -134,6 +134,124 @@
                 grid-template-columns: 1fr;
             }
         }
+
+        /* Image Prompt Styles */
+        .image-prompts-panel {
+            margin-top: 16px;
+            padding: 16px;
+            background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+            border-radius: 8px;
+            border: 1px solid #fcd34d;
+        }
+        .image-prompts-panel.collapsed {
+            max-height: 0;
+            padding: 0;
+            overflow: hidden;
+            border: none;
+        }
+        .image-prompt-options {
+            display: flex;
+            gap: 16px;
+            align-items: end;
+            margin-bottom: 16px;
+            flex-wrap: wrap;
+        }
+        .prompt-option-group {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+        .prompt-option-group label {
+            font-size: 12px;
+            font-weight: 600;
+            color: #92400e;
+        }
+        .prompt-option-group select {
+            padding: 8px 12px;
+            border-radius: 6px;
+            border: 1px solid #fcd34d;
+            background: white;
+            font-size: 14px;
+        }
+        .prompt-card {
+            background: white;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 12px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        .prompt-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 12px;
+        }
+        .prompt-number {
+            background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+            color: white;
+            padding: 2px 10px;
+            border-radius: 4px;
+            font-weight: bold;
+            font-size: 13px;
+        }
+        .prompt-concept {
+            font-weight: 600;
+            color: #374151;
+        }
+        .prompt-platform {
+            background: #e5e7eb;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            color: #4b5563;
+            text-transform: uppercase;
+        }
+        .prompt-text {
+            background: #f9fafb;
+            padding: 12px;
+            border-radius: 6px;
+            font-family: 'Monaco', 'Menlo', monospace;
+            font-size: 13px;
+            line-height: 1.6;
+            margin-bottom: 12px;
+            border: 1px solid #e5e7eb;
+        }
+        .negative-prompt {
+            font-size: 12px;
+            color: #6b7280;
+            margin-bottom: 12px;
+            padding: 8px;
+            background: #fef2f2;
+            border-radius: 4px;
+            border-left: 3px solid #ef4444;
+        }
+        .prompt-actions {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        .btn-prompt-action {
+            padding: 6px 12px;
+            font-size: 12px;
+            border: 1px solid #d1d5db;
+            background: white;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .btn-prompt-action:hover {
+            background: #f3f4f6;
+            border-color: #9ca3af;
+        }
+        .btn-prompt-action.primary {
+            background: #4f46e5;
+            color: white;
+            border-color: #4f46e5;
+        }
+        .btn-prompt-action.primary:hover {
+            background: #4338ca;
+        }
     </style>
 </head>
 <body class="bg-gray-50 min-h-screen">
@@ -855,6 +973,236 @@
 
         // ==================== END EDITING FUNCTIONS ====================
 
+        // ==================== IMAGE PROMPT FUNCTIONS ====================
+
+        // Store image prompt options
+        let imagePurposes = [];
+        let visualStyles = [];
+
+        // Load image prompt options on startup
+        async function loadImagePromptOptions() {
+            try {
+                const response = await Auth.fetchWithAuth('/api/image-prompts/options');
+                const data = await response.json();
+                imagePurposes = data.purposes || [];
+                visualStyles = data.styles || [];
+            } catch (err) {
+                console.error('Failed to load image prompt options:', err);
+            }
+        }
+
+        function toggleImagePrompts(outputId) {
+            const panel = document.getElementById(`image-prompts-panel-${outputId}`);
+            if (panel) {
+                panel.classList.toggle('collapsed');
+            }
+        }
+
+        async function generateImagePrompts(outputId) {
+            const purpose = document.getElementById(`image-purpose-${outputId}`).value;
+            const style = document.getElementById(`visual-style-${outputId}`).value;
+            const container = document.getElementById(`generated-prompts-${outputId}`);
+            const btn = document.getElementById(`generate-prompts-btn-${outputId}`);
+
+            container.innerHTML = `
+                <div class="text-center py-8">
+                    <div class="animate-spin h-6 w-6 border-4 border-amber-500 border-t-transparent rounded-full mx-auto"></div>
+                    <p class="mt-2 text-sm text-amber-700">Generating image prompts...</p>
+                </div>
+            `;
+            btn.disabled = true;
+            btn.textContent = 'Generating...';
+
+            try {
+                const response = await Auth.fetchWithAuth('/api/image-prompts/generate', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        output_id: outputId,
+                        image_purpose: purpose,
+                        visual_style: style,
+                        num_variations: 3
+                    })
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.detail || 'Failed to generate prompts');
+                }
+
+                if (data.success && data.prompts) {
+                    container.innerHTML = data.prompts.map((p, i) => `
+                        <div class="prompt-card">
+                            <div class="prompt-header">
+                                <span class="prompt-number">#${i + 1}</span>
+                                <span class="prompt-concept">${escapeHtml(p.concept || 'Generated Prompt')}</span>
+                                <span class="prompt-platform">${escapeHtml(p.best_for || 'all')}</span>
+                            </div>
+
+                            <div class="prompt-text" id="prompt-text-${outputId}-${i}">
+                                ${escapeHtml(p.prompt)}
+                            </div>
+
+                            ${p.negative_prompt ? `
+                                <div class="negative-prompt">
+                                    <strong>Negative prompt:</strong> ${escapeHtml(p.negative_prompt)}
+                                </div>
+                            ` : ''}
+
+                            <div class="prompt-actions">
+                                <button onclick="copyImagePrompt('prompt-text-${outputId}-${i}', this)" class="btn-prompt-action primary">
+                                    Copy Prompt
+                                </button>
+                                <button onclick="enhanceImagePrompt(${outputId}, ${i}, 'more_detail')" class="btn-prompt-action">
+                                    + Detail
+                                </button>
+                                <button onclick="enhanceImagePrompt(${outputId}, ${i}, 'simplify')" class="btn-prompt-action">
+                                    Simplify
+                                </button>
+                                <button onclick="enhanceImagePrompt(${outputId}, ${i}, 'more_dramatic')" class="btn-prompt-action">
+                                    Dramatic
+                                </button>
+                                <button onclick="enhanceImagePrompt(${outputId}, ${i}, 'more_professional')" class="btn-prompt-action">
+                                    Professional
+                                </button>
+                            </div>
+                        </div>
+                    `).join('');
+                } else {
+                    throw new Error('No prompts generated');
+                }
+
+            } catch (err) {
+                console.error('Image prompt generation error:', err);
+                container.innerHTML = `
+                    <div class="text-center py-4 text-red-600">
+                        <p>Failed to generate prompts: ${escapeHtml(err.message)}</p>
+                        <button onclick="generateImagePrompts(${outputId})" class="mt-2 text-indigo-600 hover:underline">Try Again</button>
+                    </div>
+                `;
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Generate Prompts';
+            }
+        }
+
+        function copyImagePrompt(elementId, buttonEl) {
+            const text = document.getElementById(elementId).innerText;
+            navigator.clipboard.writeText(text);
+
+            // Visual feedback
+            const originalText = buttonEl.textContent;
+            buttonEl.textContent = 'Copied!';
+            buttonEl.classList.add('bg-green-600');
+            setTimeout(() => {
+                buttonEl.textContent = originalText;
+                buttonEl.classList.remove('bg-green-600');
+            }, 1500);
+        }
+
+        async function enhanceImagePrompt(outputId, promptIndex, enhancementType) {
+            const promptElement = document.getElementById(`prompt-text-${outputId}-${promptIndex}`);
+            const currentPrompt = promptElement.innerText;
+
+            promptElement.innerHTML = '<em class="text-amber-600">Enhancing prompt...</em>';
+
+            try {
+                const response = await Auth.fetchWithAuth('/api/image-prompts/enhance', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        prompt: currentPrompt,
+                        enhancement_type: enhancementType
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    promptElement.innerText = data.enhanced_prompt;
+                    showToast('Prompt enhanced!');
+                } else {
+                    throw new Error(data.detail || 'Enhancement failed');
+                }
+            } catch (err) {
+                console.error('Enhance error:', err);
+                promptElement.innerText = currentPrompt;
+                showToast('Error: ' + err.message);
+            }
+        }
+
+        function renderImagePromptPanel(output) {
+            const outputId = output.id;
+
+            const purposeOptions = imagePurposes.map(p =>
+                `<option value="${p.id}">${p.name}</option>`
+            ).join('');
+
+            const styleOptions = visualStyles.map(s =>
+                `<option value="${s.id}">${s.name}</option>`
+            ).join('');
+
+            return `
+                <div class="mt-4">
+                    <button onclick="toggleImagePrompts(${outputId})"
+                        class="flex items-center gap-2 text-amber-600 hover:text-amber-800 text-sm font-medium">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                        </svg>
+                        Generate Image Prompts
+                    </button>
+
+                    <div id="image-prompts-panel-${outputId}" class="image-prompts-panel collapsed">
+                        <div class="image-prompt-options">
+                            <div class="prompt-option-group">
+                                <label>Image Purpose:</label>
+                                <select id="image-purpose-${outputId}">
+                                    ${purposeOptions || `
+                                        <option value="linkedin_post">LinkedIn Post</option>
+                                        <option value="linkedin_header">LinkedIn Header</option>
+                                        <option value="blog_hero">Blog Hero</option>
+                                        <option value="blog_inline">Blog Inline</option>
+                                        <option value="email_header">Email Header</option>
+                                        <option value="social_square">Social Square</option>
+                                        <option value="twitter_card">Twitter Card</option>
+                                    `}
+                                </select>
+                            </div>
+
+                            <div class="prompt-option-group">
+                                <label>Visual Style:</label>
+                                <select id="visual-style-${outputId}">
+                                    ${styleOptions || `
+                                        <option value="photorealistic">Photorealistic</option>
+                                        <option value="editorial">Editorial/Magazine</option>
+                                        <option value="minimal">Minimalist</option>
+                                        <option value="abstract">Abstract/Conceptual</option>
+                                        <option value="illustration">Illustration</option>
+                                        <option value="3d_render">3D Render</option>
+                                        <option value="isometric">Isometric</option>
+                                        <option value="corporate">Corporate/Business</option>
+                                        <option value="tech">Tech/Futuristic</option>
+                                    `}
+                                </select>
+                            </div>
+
+                            <button id="generate-prompts-btn-${outputId}" onclick="generateImagePrompts(${outputId})"
+                                class="bg-amber-500 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-amber-600 transition">
+                                Generate Prompts
+                            </button>
+                        </div>
+
+                        <div id="generated-prompts-${outputId}" class="generated-prompts">
+                            <p class="text-sm text-amber-700">Select options and click "Generate Prompts" to create AI image prompts for Midjourney, DALL-E, or Ideogram.</p>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        // ==================== END IMAGE PROMPT FUNCTIONS ====================
+
         function renderFeedbackButtons(outputId) {
             return `
                 <div class="flex items-center gap-1 ml-2">
@@ -1314,6 +1662,8 @@
 
                         ${renderEditPanel(output)}
 
+                        ${renderImagePromptPanel(output)}
+
                         ${hasWarnings ? `
                             <div class="mt-4 p-3 bg-yellow-50 rounded text-sm">
                                 <strong class="text-yellow-700">Warnings:</strong>
@@ -1427,8 +1777,9 @@
             }
         }
 
-        // Load tone presets first, then results
-        loadTonePresets().then(() => loadResults());
+        // Load options first, then results
+        Promise.all([loadTonePresets(), loadImagePromptOptions()])
+            .then(() => loadResults());
     </script>
 </body>
 </html>
