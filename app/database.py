@@ -345,6 +345,19 @@ async def init_db():
             );
             CREATE INDEX IF NOT EXISTS idx_autopilot_runs_monitor_id ON autopilot_runs(monitor_id);
             CREATE INDEX IF NOT EXISTS idx_autopilot_runs_run_at ON autopilot_runs(run_at);
+
+            -- Output edit history for tone adjustments and manual edits
+            CREATE TABLE IF NOT EXISTS output_edits (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                output_id INTEGER NOT NULL,
+                edit_type TEXT NOT NULL,
+                instruction TEXT,
+                original_content TEXT NOT NULL,
+                edited_content TEXT NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (output_id) REFERENCES outputs(id) ON DELETE CASCADE
+            );
+            CREATE INDEX IF NOT EXISTS idx_output_edits_output_id ON output_edits(output_id);
         """)
 
         await db.commit()
