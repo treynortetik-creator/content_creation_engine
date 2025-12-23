@@ -1,0 +1,533 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Autopilot - ContentMultiplier</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="/static/styles.css">
+    <script src="/static/auth.js"></script>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <!-- Navigation -->
+    <nav class="bg-white shadow-sm border-b">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16">
+                <div class="flex items-center">
+                    <a href="/" class="text-xl font-bold text-indigo-600">ContentMultiplier</a>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <a href="/upload.html" class="text-gray-600 hover:text-gray-900">Upload</a>
+                    <a href="/library.html" class="text-gray-600 hover:text-gray-900">Library</a>
+                    <a href="/autopilot.html" class="text-indigo-600 font-medium">Autopilot</a>
+                    <a href="/swipe.html" class="text-gray-600 hover:text-gray-900">Swipe File</a>
+                    <a href="/calendar.html" class="text-gray-600 hover:text-gray-900">Calendar</a>
+                    <div id="navbar-user" class="flex items-center"></div>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <div class="max-w-6xl mx-auto px-4 py-8">
+        <!-- Header -->
+        <div class="mb-8">
+            <h1 class="text-3xl font-bold text-gray-900">Autopilot Monitoring</h1>
+            <p class="text-gray-600 mt-2">Automatically process new content from YouTube channels, podcasts, and RSS feeds.</p>
+        </div>
+
+        <!-- Add Monitor Section -->
+        <div class="bg-white rounded-lg shadow-sm p-6 mb-8">
+            <h2 class="text-xl font-semibold text-gray-800 mb-4">Add New Monitor</h2>
+
+            <form id="add-monitor-form" class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Monitor Name</label>
+                    <input type="text" name="monitor_name"
+                        placeholder="e.g., 'My Company YouTube'"
+                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                        required>
+                </div>
+
+                <div class="grid md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Source Type</label>
+                        <select name="source_type" id="source-type"
+                            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                            required>
+                            <option value="">Select Source Type</option>
+                            <option value="youtube_channel">YouTube Channel</option>
+                            <option value="podcast">Podcast Feed</option>
+                            <option value="rss">RSS/Blog Feed</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Target Persona</label>
+                        <select name="persona_id" id="persona-select"
+                            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                            required>
+                            <option value="">Select Persona</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Source URL</label>
+                    <input type="url" name="source_url"
+                        placeholder="Enter source URL"
+                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                        required>
+                    <p id="url-hint" class="text-sm text-gray-500 mt-1"></p>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Magic Words (Optional)</label>
+                    <input type="text" name="magic_words"
+                        placeholder="Domain-specific vocabulary (comma separated)"
+                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent">
+                    <p class="text-sm text-gray-500 mt-1">Industry terms the AI should preserve exactly</p>
+                </div>
+
+                <div class="flex items-center gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Check Interval</label>
+                        <select name="check_interval_hours"
+                            class="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent">
+                            <option value="1">Every hour</option>
+                            <option value="6">Every 6 hours</option>
+                            <option value="12">Every 12 hours</option>
+                            <option value="24" selected>Every 24 hours</option>
+                            <option value="48">Every 48 hours</option>
+                            <option value="168">Weekly</option>
+                        </select>
+                    </div>
+
+                    <div class="flex-1"></div>
+
+                    <button type="button" onclick="validateUrl()" id="validate-btn"
+                        class="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition">
+                        Validate URL
+                    </button>
+
+                    <button type="submit"
+                        class="px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition font-medium">
+                        Create Monitor
+                    </button>
+                </div>
+
+                <div id="validation-result" class="hidden mt-4 p-4 rounded-lg"></div>
+            </form>
+        </div>
+
+        <!-- Active Monitors -->
+        <div class="bg-white rounded-lg shadow-sm p-6">
+            <h2 class="text-xl font-semibold text-gray-800 mb-4">Active Monitors</h2>
+
+            <div id="loading" class="text-center py-8">
+                <div class="animate-spin h-8 w-8 border-4 border-indigo-600 border-t-transparent rounded-full mx-auto"></div>
+                <p class="mt-4 text-gray-600">Loading monitors...</p>
+            </div>
+
+            <div id="empty-state" class="hidden text-center py-12">
+                <div class="text-6xl mb-4">&#128225;</div>
+                <h3 class="text-xl font-semibold text-gray-800 mb-2">No monitors yet</h3>
+                <p class="text-gray-600">Create a monitor above to start automatically processing content.</p>
+            </div>
+
+            <div id="monitors-list" class="space-y-4 hidden"></div>
+        </div>
+    </div>
+
+    <!-- Run History Modal -->
+    <div id="history-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
+        <div class="bg-white rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[80vh] overflow-hidden">
+            <div class="p-6 border-b border-gray-200 flex justify-between items-center">
+                <h3 class="text-xl font-semibold text-gray-800">Run History</h3>
+                <button onclick="closeHistoryModal()" class="text-gray-500 hover:text-gray-700 text-2xl">&times;</button>
+            </div>
+            <div id="history-content" class="p-6 overflow-y-auto max-h-[60vh]">
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast -->
+    <div id="toast" class="fixed bottom-4 right-4 bg-gray-800 text-white px-4 py-2 rounded-lg shadow-lg hidden">
+        Message here
+    </div>
+
+    <script>
+        // Require authentication
+        if (!Auth.requireAuth()) {
+            // Will redirect to login
+        }
+
+        function showToast(message) {
+            const toast = document.getElementById('toast');
+            toast.textContent = message;
+            toast.classList.remove('hidden');
+            setTimeout(() => toast.classList.add('hidden'), 3000);
+        }
+
+        function getSourceTypeInfo(type) {
+            const info = {
+                'youtube_channel': {
+                    color: 'red',
+                    icon: '&#9654;',
+                    hint: 'e.g., https://www.youtube.com/@channelname or https://www.youtube.com/channel/UC...'
+                },
+                'podcast': {
+                    color: 'purple',
+                    icon: '&#127911;',
+                    hint: 'e.g., https://feeds.simplecast.com/yourpodcast or RSS feed URL from podcast page'
+                },
+                'rss': {
+                    color: 'orange',
+                    icon: '&#128240;',
+                    hint: 'e.g., https://blog.example.com/feed or any RSS/Atom feed URL'
+                }
+            };
+            return info[type] || { color: 'gray', icon: '&#128279;', hint: '' };
+        }
+
+        // Update URL hint based on source type
+        document.getElementById('source-type').addEventListener('change', function() {
+            const info = getSourceTypeInfo(this.value);
+            document.getElementById('url-hint').textContent = info.hint;
+        });
+
+        async function loadPersonas() {
+            try {
+                const response = await Auth.fetchWithAuth('/api/personas');
+                const data = await response.json();
+
+                const select = document.getElementById('persona-select');
+
+                // Add preset personas
+                if (data.presets) {
+                    data.presets.forEach(p => {
+                        const option = document.createElement('option');
+                        option.value = p.id;
+                        option.textContent = p.title;
+                        select.appendChild(option);
+                    });
+                }
+
+                // Add custom personas
+                if (data.custom && data.custom.length > 0) {
+                    const optgroup = document.createElement('optgroup');
+                    optgroup.label = 'Custom Personas';
+                    data.custom.forEach(p => {
+                        const option = document.createElement('option');
+                        option.value = p.persona_id;
+                        option.textContent = p.title;
+                        optgroup.appendChild(option);
+                    });
+                    select.appendChild(optgroup);
+                }
+            } catch (err) {
+                console.error('Failed to load personas:', err);
+            }
+        }
+
+        async function validateUrl() {
+            const sourceType = document.querySelector('[name="source_type"]').value;
+            const sourceUrl = document.querySelector('[name="source_url"]').value;
+
+            if (!sourceType || !sourceUrl) {
+                showToast('Please select source type and enter URL');
+                return;
+            }
+
+            const btn = document.getElementById('validate-btn');
+            btn.disabled = true;
+            btn.textContent = 'Validating...';
+
+            const resultDiv = document.getElementById('validation-result');
+
+            try {
+                const response = await Auth.fetchWithAuth(
+                    `/api/autopilot/validate-url?source_type=${encodeURIComponent(sourceType)}&source_url=${encodeURIComponent(sourceUrl)}`,
+                    { method: 'POST' }
+                );
+                const data = await response.json();
+
+                resultDiv.classList.remove('hidden', 'bg-green-50', 'bg-red-50');
+
+                if (data.valid) {
+                    resultDiv.classList.add('bg-green-50');
+                    resultDiv.innerHTML = `
+                        <div class="flex items-center gap-2 text-green-700">
+                            <span class="text-xl">&#10004;</span>
+                            <span class="font-medium">Valid source!</span>
+                        </div>
+                        <p class="text-green-600 mt-1">
+                            Found ${data.item_count} items.
+                            ${data.latest_title ? `Latest: "${data.latest_title}"` : ''}
+                        </p>
+                    `;
+                } else {
+                    resultDiv.classList.add('bg-red-50');
+                    resultDiv.innerHTML = `
+                        <div class="flex items-center gap-2 text-red-700">
+                            <span class="text-xl">&#10006;</span>
+                            <span class="font-medium">Invalid source</span>
+                        </div>
+                        <p class="text-red-600 mt-1">${data.error}</p>
+                    `;
+                }
+            } catch (err) {
+                resultDiv.classList.remove('hidden', 'bg-green-50');
+                resultDiv.classList.add('bg-red-50');
+                resultDiv.innerHTML = `
+                    <div class="text-red-700">Failed to validate URL</div>
+                `;
+            }
+
+            btn.disabled = false;
+            btn.textContent = 'Validate URL';
+        }
+
+        async function loadMonitors() {
+            try {
+                const response = await Auth.fetchWithAuth('/api/autopilot/monitors');
+                const data = await response.json();
+
+                document.getElementById('loading').classList.add('hidden');
+
+                if (!data.monitors || data.monitors.length === 0) {
+                    document.getElementById('empty-state').classList.remove('hidden');
+                    document.getElementById('monitors-list').classList.add('hidden');
+                    return;
+                }
+
+                document.getElementById('empty-state').classList.add('hidden');
+                const container = document.getElementById('monitors-list');
+                container.classList.remove('hidden');
+
+                container.innerHTML = data.monitors.map(m => {
+                    const info = getSourceTypeInfo(m.source_type);
+                    const lastChecked = m.last_checked_at
+                        ? new Date(m.last_checked_at).toLocaleString()
+                        : 'Never';
+
+                    return `
+                        <div class="border border-gray-200 rounded-lg p-4 ${m.enabled ? '' : 'opacity-60 bg-gray-50'}">
+                            <div class="flex justify-between items-start mb-3">
+                                <div class="flex items-center gap-3">
+                                    <span class="text-2xl">${info.icon}</span>
+                                    <div>
+                                        <h3 class="font-semibold text-gray-800">${m.monitor_name}</h3>
+                                        <span class="text-xs px-2 py-0.5 rounded-full bg-${info.color}-100 text-${info.color}-700 capitalize">
+                                            ${m.source_type.replace('_', ' ')}
+                                        </span>
+                                    </div>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    ${m.enabled
+                                        ? '<span class="w-2 h-2 bg-green-500 rounded-full"></span><span class="text-sm text-green-600">Active</span>'
+                                        : '<span class="w-2 h-2 bg-gray-400 rounded-full"></span><span class="text-sm text-gray-500">Paused</span>'
+                                    }
+                                </div>
+                            </div>
+
+                            <div class="text-sm text-gray-600 mb-3 space-y-1">
+                                <p class="truncate"><strong>Source:</strong> ${m.source_url}</p>
+                                <p><strong>Interval:</strong> Every ${m.check_interval_hours} hour${m.check_interval_hours > 1 ? 's' : ''}</p>
+                                <p><strong>Last checked:</strong> ${lastChecked}</p>
+                                ${m.magic_words ? `<p><strong>Magic words:</strong> ${m.magic_words}</p>` : ''}
+                            </div>
+
+                            <div class="flex gap-2 flex-wrap">
+                                <button onclick="checkNow(${m.id})" class="px-3 py-1.5 bg-indigo-100 text-indigo-700 rounded hover:bg-indigo-200 text-sm font-medium">
+                                    Check Now
+                                </button>
+                                <button onclick="toggleMonitor(${m.id}, ${!m.enabled})" class="px-3 py-1.5 bg-gray-100 text-gray-700 rounded hover:bg-gray-200 text-sm">
+                                    ${m.enabled ? 'Pause' : 'Resume'}
+                                </button>
+                                <button onclick="viewHistory(${m.id})" class="px-3 py-1.5 bg-gray-100 text-gray-700 rounded hover:bg-gray-200 text-sm">
+                                    History
+                                </button>
+                                <button onclick="deleteMonitor(${m.id})" class="px-3 py-1.5 bg-red-100 text-red-700 rounded hover:bg-red-200 text-sm">
+                                    Delete
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+
+            } catch (err) {
+                console.error('Failed to load monitors:', err);
+                document.getElementById('loading').innerHTML = `
+                    <p class="text-red-600">Failed to load monitors</p>
+                `;
+            }
+        }
+
+        document.getElementById('add-monitor-form').addEventListener('submit', async function(e) {
+            e.preventDefault();
+
+            const formData = new FormData(this);
+            const data = Object.fromEntries(formData);
+            data.check_interval_hours = parseInt(data.check_interval_hours);
+
+            try {
+                const response = await Auth.fetchWithAuth('/api/autopilot/monitors', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+
+                const result = await response.json();
+
+                if (response.ok) {
+                    showToast('Monitor created successfully!');
+                    this.reset();
+                    document.getElementById('validation-result').classList.add('hidden');
+                    document.getElementById('url-hint').textContent = '';
+                    loadMonitors();
+                } else {
+                    showToast('Error: ' + (result.detail || 'Failed to create monitor'));
+                }
+            } catch (err) {
+                console.error('Create monitor error:', err);
+                showToast('Failed to create monitor');
+            }
+        });
+
+        async function checkNow(monitorId) {
+            showToast('Checking for new content...');
+
+            try {
+                const response = await Auth.fetchWithAuth(`/api/autopilot/monitors/${monitorId}/check-now`, {
+                    method: 'POST'
+                });
+                const result = await response.json();
+
+                if (result.status === 'success') {
+                    showToast(`Found ${result.new_items} new items! Created ${result.jobs_created} jobs.`);
+                } else if (result.status === 'no_new_content') {
+                    showToast('No new content found.');
+                } else if (result.status === 'error') {
+                    showToast('Error: ' + result.error);
+                }
+
+                loadMonitors();
+            } catch (err) {
+                console.error('Check now error:', err);
+                showToast('Failed to check monitor');
+            }
+        }
+
+        async function toggleMonitor(monitorId, enabled) {
+            try {
+                await Auth.fetchWithAuth(`/api/autopilot/monitors/${monitorId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ enabled })
+                });
+                loadMonitors();
+                showToast(enabled ? 'Monitor resumed' : 'Monitor paused');
+            } catch (err) {
+                console.error('Toggle monitor error:', err);
+                showToast('Failed to update monitor');
+            }
+        }
+
+        async function deleteMonitor(monitorId) {
+            if (!confirm('Delete this monitor? This cannot be undone.')) return;
+
+            try {
+                await Auth.fetchWithAuth(`/api/autopilot/monitors/${monitorId}`, {
+                    method: 'DELETE'
+                });
+                loadMonitors();
+                showToast('Monitor deleted');
+            } catch (err) {
+                console.error('Delete monitor error:', err);
+                showToast('Failed to delete monitor');
+            }
+        }
+
+        async function viewHistory(monitorId) {
+            const modal = document.getElementById('history-modal');
+            const content = document.getElementById('history-content');
+
+            content.innerHTML = `
+                <div class="text-center py-8">
+                    <div class="animate-spin h-6 w-6 border-2 border-indigo-600 border-t-transparent rounded-full mx-auto"></div>
+                </div>
+            `;
+
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+
+            try {
+                const response = await Auth.fetchWithAuth(`/api/autopilot/monitors/${monitorId}/runs?limit=20`);
+                const data = await response.json();
+
+                if (!data.runs || data.runs.length === 0) {
+                    content.innerHTML = `
+                        <p class="text-gray-500 text-center py-8">No run history yet.</p>
+                    `;
+                    return;
+                }
+
+                content.innerHTML = `
+                    <table class="w-full">
+                        <thead>
+                            <tr class="text-left text-sm text-gray-500 border-b">
+                                <th class="pb-2">Time</th>
+                                <th class="pb-2">Status</th>
+                                <th class="pb-2">Found</th>
+                                <th class="pb-2">Jobs</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y">
+                            ${data.runs.map(r => `
+                                <tr class="text-sm">
+                                    <td class="py-2">${new Date(r.run_at).toLocaleString()}</td>
+                                    <td class="py-2">
+                                        <span class="px-2 py-0.5 rounded-full text-xs ${
+                                            r.run_status === 'success' ? 'bg-green-100 text-green-700' :
+                                            r.run_status === 'error' ? 'bg-red-100 text-red-700' :
+                                            'bg-gray-100 text-gray-700'
+                                        }">
+                                            ${r.run_status}
+                                        </span>
+                                    </td>
+                                    <td class="py-2">${r.content_found}</td>
+                                    <td class="py-2">${r.jobs_created}</td>
+                                </tr>
+                                ${r.error_message ? `
+                                    <tr class="text-xs text-red-600">
+                                        <td colspan="4" class="pb-2 pl-4">${r.error_message}</td>
+                                    </tr>
+                                ` : ''}
+                            `).join('')}
+                        </tbody>
+                    </table>
+                `;
+            } catch (err) {
+                content.innerHTML = `
+                    <p class="text-red-600 text-center">Failed to load history</p>
+                `;
+            }
+        }
+
+        function closeHistoryModal() {
+            const modal = document.getElementById('history-modal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        }
+
+        // Close modal on escape
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') closeHistoryModal();
+        });
+
+        // Initialize
+        loadPersonas();
+        loadMonitors();
+    </script>
+</body>
+</html>

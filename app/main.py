@@ -13,8 +13,9 @@ from slowapi.errors import RateLimitExceeded
 
 from app.config import get_settings
 from app.database import init_db
-from app.api import upload, jobs, library, admin, auth, personas, brand_voice, memory, swipe, feedback, analytics, export, integrations, batch, remix, calendar
+from app.api import upload, jobs, library, admin, auth, personas, brand_voice, memory, swipe, feedback, analytics, export, integrations, batch, remix, calendar, autopilot
 from app.api import admin_views
+from app.services.autopilot.scheduler import scheduler
 
 settings = get_settings()
 
@@ -52,9 +53,14 @@ async def lifespan(app: FastAPI):
     await init_prompts_from_files()
     print("Prompt templates loaded")
 
+    # Start autopilot scheduler
+    asyncio.create_task(scheduler.start())
+    print("Autopilot scheduler started")
+
     yield
 
     # Shutdown
+    scheduler.stop()
     print("Shutting down ContentMultiplier...")
 
 
@@ -94,6 +100,7 @@ app.include_router(integrations.router, prefix="/api", tags=["integrations"])
 app.include_router(batch.router, prefix="/api", tags=["batch"])
 app.include_router(remix.router, prefix="/api", tags=["remix"])
 app.include_router(calendar.router, prefix="/api", tags=["calendar"])
+app.include_router(autopilot.router, prefix="/api", tags=["autopilot"])
 # Register admin views FIRST so HTML pages take priority over API responses
 app.include_router(admin_views.router, prefix="/admin", tags=["admin-views"])
 app.include_router(admin.router, prefix="/api/admin", tags=["admin-api"])
@@ -165,6 +172,24 @@ async def serve_remix():
 async def serve_calendar():
     """Serve calendar page."""
     return FileResponse(frontend_path / "calendar.html")
+
+
+@app.get("/autopilot.html")
+async def serve_autopilot():
+    """Serve autopilot page."""
+    return FileResponse(frontend_path / "autopilot.html")
+
+
+@app.get("/swipe.html")
+async def serve_swipe():
+    """Serve swipe file page."""
+    return FileResponse(frontend_path / "swipe.html")
+
+
+@app.get("/analytics.html")
+async def serve_analytics():
+    """Serve analytics page."""
+    return FileResponse(frontend_path / "analytics.html")
 
 
 @app.get("/")

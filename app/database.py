@@ -311,6 +311,40 @@ async def init_db():
             );
             CREATE INDEX IF NOT EXISTS idx_swipe_collection_user_id ON swipe_collection_analysis(user_id);
             CREATE INDEX IF NOT EXISTS idx_swipe_collection_content_type ON swipe_collection_analysis(content_type);
+
+            -- Autopilot monitors for watching content sources
+            CREATE TABLE IF NOT EXISTS autopilot_monitors (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL,
+                monitor_name TEXT NOT NULL,
+                source_type TEXT NOT NULL,
+                source_url TEXT NOT NULL,
+                source_id TEXT,
+                persona_id TEXT NOT NULL,
+                magic_words TEXT,
+                enabled BOOLEAN DEFAULT TRUE,
+                check_interval_hours INTEGER DEFAULT 24,
+                last_checked_at TIMESTAMP,
+                last_content_id TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (user_id) REFERENCES users(id)
+            );
+            CREATE INDEX IF NOT EXISTS idx_autopilot_monitors_user_id ON autopilot_monitors(user_id);
+            CREATE INDEX IF NOT EXISTS idx_autopilot_monitors_enabled ON autopilot_monitors(enabled);
+
+            -- Autopilot run history
+            CREATE TABLE IF NOT EXISTS autopilot_runs (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                monitor_id INTEGER NOT NULL,
+                run_status TEXT NOT NULL,
+                content_found INTEGER DEFAULT 0,
+                jobs_created INTEGER DEFAULT 0,
+                error_message TEXT,
+                run_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (monitor_id) REFERENCES autopilot_monitors(id) ON DELETE CASCADE
+            );
+            CREATE INDEX IF NOT EXISTS idx_autopilot_runs_monitor_id ON autopilot_runs(monitor_id);
+            CREATE INDEX IF NOT EXISTS idx_autopilot_runs_run_at ON autopilot_runs(run_at);
         """)
 
         await db.commit()
@@ -345,6 +379,13 @@ async def init_db():
             await db.execute("SELECT batch_id FROM jobs LIMIT 1")
         except aiosqlite.OperationalError:
             await db.execute("ALTER TABLE jobs ADD COLUMN batch_id TEXT")
+            await db.commit()
+
+        # Migration: Add autopilot_monitor_id column to jobs if missing
+        try:
+            await db.execute("SELECT autopilot_monitor_id FROM jobs LIMIT 1")
+        except aiosqlite.OperationalError:
+            await db.execute("ALTER TABLE jobs ADD COLUMN autopilot_monitor_id INTEGER")
             await db.commit()
 
         # Migration: Seed default AI model configurations
