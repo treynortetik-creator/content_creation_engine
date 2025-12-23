@@ -151,6 +151,22 @@ async def init_db():
             CREATE INDEX IF NOT EXISTS idx_content_library_type ON content_library(entry_type);
             CREATE INDEX IF NOT EXISTS idx_rate_limits_user ON rate_limits(user_id, action_type, timestamp);
             CREATE INDEX IF NOT EXISTS idx_error_logs_user ON error_logs(user_id, created_at);
+
+            -- Brand voice configuration table
+            CREATE TABLE IF NOT EXISTS brand_contexts (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL UNIQUE,
+                company_name TEXT,
+                industry TEXT,
+                brand_voice_json JSON NOT NULL DEFAULT '{}',
+                mission_statement TEXT,
+                key_differentiators JSON,
+                competitor_names JSON,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (user_id) REFERENCES users(id)
+            );
+            CREATE INDEX IF NOT EXISTS idx_brand_contexts_user_id ON brand_contexts(user_id);
         """)
 
         await db.commit()

@@ -10,6 +10,7 @@ from app.services.persona_manager import get_persona
 from app.services.atomization import select_atoms_for_content_type, group_atoms_by_type
 from app.utils.retry import retry_async, claude_circuit_breaker
 from app.services import settings_manager
+from app.api.brand_voice import get_user_brand_context, format_brand_voice_for_prompt
 
 settings = get_settings()
 
@@ -139,6 +140,7 @@ async def draft_linkedin_posts(
     atoms: list[dict],
     target_persona: Union[str, dict],
     count: int = 3,
+    user_id: int = None,
 ) -> Tuple[list[dict], float]:
     """
     Generate LinkedIn post drafts using Claude.
@@ -147,6 +149,7 @@ async def draft_linkedin_posts(
         atoms: List of content atoms to use
         target_persona: Either a persona ID string (legacy) or a combined persona dict
         count: Number of variations to generate
+        user_id: User ID for fetching brand voice context
 
     Returns (drafts_list, cost) tuple.
     """
@@ -191,8 +194,15 @@ async def draft_linkedin_posts(
 
     prompt, config = await get_rendered_prompt("linkedin_draft", variables)
 
+    # Fetch and inject brand voice if user_id provided
+    brand_voice_section = ""
+    if user_id:
+        brand_context = await get_user_brand_context(user_id)
+        if brand_context:
+            brand_voice_section = format_brand_voice_for_prompt(brand_context, "linkedin")
+
     # Add JSON output instruction
-    full_prompt = prompt + f"""
+    full_prompt = brand_voice_section + prompt + f"""
 
 Generate exactly {count} LinkedIn post variations.
 
@@ -237,6 +247,7 @@ OUTPUT FORMAT (valid JSON):
 async def draft_blog_post(
     atoms: list[dict],
     target_persona: Union[str, dict],
+    user_id: int = None,
 ) -> Tuple[dict, float]:
     """
     Generate a blog post draft using Claude.
@@ -244,6 +255,7 @@ async def draft_blog_post(
     Args:
         atoms: List of content atoms to use
         target_persona: Either a persona ID string (legacy) or a combined persona dict
+        user_id: User ID for fetching brand voice context
 
     Returns (draft, cost) tuple.
     """
@@ -280,8 +292,15 @@ async def draft_blog_post(
 
     prompt, config = await get_rendered_prompt("blog_draft", variables)
 
+    # Fetch and inject brand voice if user_id provided
+    brand_voice_section = ""
+    if user_id:
+        brand_context = await get_user_brand_context(user_id)
+        if brand_context:
+            brand_voice_section = format_brand_voice_for_prompt(brand_context, "blog")
+
     # Add JSON output instruction
-    full_prompt = prompt + """
+    full_prompt = brand_voice_section + prompt + """
 
 OUTPUT FORMAT (valid JSON):
 {
@@ -317,6 +336,7 @@ OUTPUT FORMAT (valid JSON):
 async def draft_email(
     atoms: list[dict],
     target_persona: Union[str, dict],
+    user_id: int = None,
 ) -> Tuple[dict, float]:
     """
     Generate an email draft using Claude.
@@ -324,6 +344,7 @@ async def draft_email(
     Args:
         atoms: List of content atoms to use
         target_persona: Either a persona ID string (legacy) or a combined persona dict
+        user_id: User ID for fetching brand voice context
 
     Returns (draft, cost) tuple.
     """
@@ -367,8 +388,15 @@ async def draft_email(
 
     prompt, config = await get_rendered_prompt("email_draft", variables)
 
+    # Fetch and inject brand voice if user_id provided
+    brand_voice_section = ""
+    if user_id:
+        brand_context = await get_user_brand_context(user_id)
+        if brand_context:
+            brand_voice_section = format_brand_voice_for_prompt(brand_context, "email")
+
     # Add output instruction
-    full_prompt = prompt + """
+    full_prompt = brand_voice_section + prompt + """
 
 OUTPUT FORMAT (valid JSON):
 {

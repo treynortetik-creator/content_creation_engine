@@ -261,7 +261,7 @@ async def process_job(job_id: str):
         if "linkedin" in asset_types:
             count = asset_quantities.get("linkedin", 3)
             linkedin_drafts, li_cost = await draft_linkedin_posts(
-                atoms, combined_persona, count
+                atoms, combined_persona, count, user_id=user_id
             )
             total_cost += li_cost
 
@@ -275,7 +275,7 @@ async def process_job(job_id: str):
 
         # Generate blog post if requested
         if "blog" in asset_types:
-            blog_draft, blog_cost = await draft_blog_post(atoms, combined_persona)
+            blog_draft, blog_cost = await draft_blog_post(atoms, combined_persona, user_id=user_id)
             total_cost += blog_cost
 
             all_drafts.append({
@@ -288,7 +288,7 @@ async def process_job(job_id: str):
 
         # Generate email if requested
         if "email" in asset_types:
-            email_draft, email_cost = await draft_email(atoms, combined_persona)
+            email_draft, email_cost = await draft_email(atoms, combined_persona, user_id=user_id)
             total_cost += email_cost
 
             all_drafts.append({
@@ -397,6 +397,7 @@ async def process_job_from_library(job_id: str, atom_content: list[dict]):
         if not job_data:
             return
 
+        user_id = job_data["user_id"]
         target_persona = job_data["target_persona"]
         asset_types = json.loads(job_data["asset_types"]) if job_data["asset_types"] else ["linkedin"]
         asset_quantities = json.loads(job_data["asset_quantities"]) if job_data["asset_quantities"] else {}
@@ -422,7 +423,7 @@ async def process_job_from_library(job_id: str, atom_content: list[dict]):
         if "linkedin" in asset_types:
             count = asset_quantities.get("linkedin", 2)
             linkedin_drafts, li_cost = await draft_linkedin_posts(
-                atoms, target_persona, count
+                atoms, target_persona, count, user_id=user_id
             )
             total_cost += li_cost
 
@@ -435,7 +436,7 @@ async def process_job_from_library(job_id: str, atom_content: list[dict]):
                 })
 
         if "blog" in asset_types:
-            blog_draft, blog_cost = await draft_blog_post(atoms, target_persona)
+            blog_draft, blog_cost = await draft_blog_post(atoms, target_persona, user_id=user_id)
             total_cost += blog_cost
 
             all_drafts.append({

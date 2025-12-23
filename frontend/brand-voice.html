@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Brand Voice Setup - ContentMultiplier</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="/static/styles.css">
+    <script src="/static/auth.js"></script>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <!-- Navigation -->
+    <nav class="bg-white shadow-sm border-b">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16">
+                <div class="flex items-center">
+                    <a href="/" class="text-xl font-bold text-indigo-600">ContentMultiplier</a>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <a href="/upload.html" class="text-gray-600 hover:text-gray-900">Upload</a>
+                    <a href="/library.html" class="text-gray-600 hover:text-gray-900">Library</a>
+                    <a href="/settings.html" class="text-gray-600 hover:text-gray-900">Settings</a>
+                    <div id="navbar-user" class="flex items-center"></div>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <div class="max-w-4xl mx-auto px-4 py-8">
+        <!-- Header -->
+        <div class="mb-8">
+            <h1 class="text-3xl font-bold mb-2">Brand Voice Setup</h1>
+            <p class="text-gray-600">Configure your brand voice so all generated content sounds authentically you.</p>
+        </div>
+
+        <!-- Skip Option (for onboarding) -->
+        <div id="skip-banner" class="hidden mb-6 bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-yellow-800 font-medium">Want to skip for now?</p>
+                    <p class="text-sm text-yellow-600">You can always set this up later in Settings.</p>
+                </div>
+                <button onclick="skipSetup()" class="px-4 py-2 text-yellow-700 hover:text-yellow-900 underline">
+                    Skip for now
+                </button>
+            </div>
+        </div>
+
+        <!-- Form -->
+        <form id="brand-voice-form" class="space-y-8">
+            <!-- Company Info Section -->
+            <div class="bg-white rounded-lg shadow-sm p-6">
+                <h2 class="text-xl font-semibold mb-4">Company Information</h2>
+                <div class="grid md:grid-cols-2 gap-6">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Company Name</label>
+                        <input type="text" id="company_name"
+                            class="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                            placeholder="e.g., SafelyYou">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Industry</label>
+                        <input type="text" id="industry"
+                            class="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                            placeholder="e.g., Senior Care Technology">
+                    </div>
+                </div>
+                <div class="mt-6">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Mission Statement (optional)</label>
+                    <textarea id="mission_statement" rows="2"
+                        class="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                        placeholder="e.g., Helping seniors age with dignity through innovative fall detection technology"></textarea>
+                </div>
+            </div>
+
+            <!-- Tone by Format Section -->
+            <div class="bg-white rounded-lg shadow-sm p-6">
+                <h2 class="text-xl font-semibold mb-2">Tone by Content Type</h2>
+                <p class="text-gray-600 mb-6">Define how your brand should sound for each content format.</p>
+
+                <div class="space-y-6">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">
+                            <span class="inline-flex items-center">
+                                <svg class="w-5 h-5 mr-2 text-blue-600" fill="currentColor" viewBox="0 0 24 24">
+                                    <path d="M19 3a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h14m-.5 15.5v-5.3a3.26 3.26 0 0 0-3.26-3.26c-.85 0-1.84.52-2.32 1.3v-1.11h-2.79v8.37h2.79v-4.93c0-.77.62-1.4 1.39-1.4a1.4 1.4 0 0 1 1.4 1.4v4.93h2.79M6.88 8.56a1.68 1.68 0 0 0 1.68-1.68c0-.93-.75-1.69-1.68-1.69a1.69 1.69 0 0 0-1.69 1.69c0 .93.76 1.68 1.69 1.68m1.39 9.94v-8.37H5.5v8.37h2.77z"/>
+                                </svg>
+                                LinkedIn Tone
+                            </span>
+                        </label>
+                        <textarea id="tone_linkedin" rows="2"
+                            class="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                            placeholder="e.g., Conversational, punchy, question-driven. Lead with curiosity."></textarea>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">
+                            <span class="inline-flex items-center">
+                                <svg class="w-5 h-5 mr-2 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z"/>
+                                </svg>
+                                Blog Tone
+                            </span>
+                        </label>
+                        <textarea id="tone_blog" rows="2"
+                            class="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                            placeholder="e.g., Authoritative but accessible, educational. Back up claims with data."></textarea>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">
+                            <span class="inline-flex items-center">
+                                <svg class="w-5 h-5 mr-2 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+                                </svg>
+                                Email Tone
+                            </span>
+                        </label>
+                        <textarea id="tone_email" rows="2"
+                            class="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                            placeholder="e.g., Warm, brief, helpful without hard selling. Personal but professional."></textarea>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Core Principles Section -->
+            <div class="bg-white rounded-lg shadow-sm p-6">
+                <h2 class="text-xl font-semibold mb-2">Core Brand Principles</h2>
+                <p class="text-gray-600 mb-4">Define 3-5 principles that guide all your content. One per line.</p>
+
+                <textarea id="core_principles" rows="5"
+                    class="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 font-mono text-sm"
+                    placeholder="Empathetic - acknowledges challenges before solutions
+Data-driven - every claim backed by stats or research
+Solution-focused - problems are stepping stones to answers
+Human-first - technology serves people, not the other way around
+Actionable - every piece of content has a clear next step"></textarea>
+            </div>
+
+            <!-- Mission Phrases Section -->
+            <div class="bg-white rounded-lg shadow-sm p-6">
+                <h2 class="text-xl font-semibold mb-2">Mission Phrases & Taglines</h2>
+                <p class="text-gray-600 mb-4">Key phrases that embody your brand. The AI will weave these naturally into content. One per line.</p>
+
+                <textarea id="mission_phrases" rows="4"
+                    class="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 font-mono text-sm"
+                    placeholder="Age with agency
+Raise the standard of care
+Dignity in every moment
+Prevention over reaction"></textarea>
+            </div>
+
+            <!-- Red Flags Section -->
+            <div class="bg-white rounded-lg shadow-sm p-6">
+                <h2 class="text-xl font-semibold mb-2">Red Flags - Never Do These</h2>
+                <p class="text-gray-600 mb-4">Things your content should never include or do. One per line.</p>
+
+                <textarea id="red_flags" rows="5"
+                    class="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 font-mono text-sm"
+                    placeholder="Never name competitors directly
+No claims without proof or citations
+Avoid fear tactics or scare language
+Don't oversimplify complex topics
+No jargon without explanation"></textarea>
+            </div>
+
+            <!-- Structural Preferences Section -->
+            <div class="bg-white rounded-lg shadow-sm p-6">
+                <h2 class="text-xl font-semibold mb-2">Structural Preferences</h2>
+                <p class="text-gray-600 mb-6">How your content should be structured.</p>
+
+                <div class="space-y-6">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">LinkedIn Post Structure</label>
+                        <textarea id="linkedin_structure" rows="2"
+                            class="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                            placeholder="Hook (question/stat) → Bullets (3-5) → Mission tie → CTA"></textarea>
+                    </div>
+
+                    <div class="grid md:grid-cols-2 gap-6">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Paragraph Length</label>
+                            <select id="paragraph_length"
+                                class="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+                                <option value="1-2 sentences">Short (1-2 sentences)</option>
+                                <option value="2-4 sentences" selected>Medium (2-4 sentences)</option>
+                                <option value="3-5 sentences">Long (3-5 sentences)</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Contractions Usage</label>
+                            <select id="contractions"
+                                class="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+                                <option value="Frequent">Frequent (we're, you'll, it's)</option>
+                                <option value="Moderate" selected>Moderate</option>
+                                <option value="Rare">Rare (more formal)</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Competitors Section -->
+            <div class="bg-white rounded-lg shadow-sm p-6">
+                <h2 class="text-xl font-semibold mb-2">Competitors (optional)</h2>
+                <p class="text-gray-600 mb-4">List competitors to avoid mentioning. One per line.</p>
+
+                <textarea id="competitor_names" rows="3"
+                    class="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 font-mono text-sm"
+                    placeholder="Competitor A
+Competitor B
+Competitor C"></textarea>
+            </div>
+
+            <!-- Key Differentiators Section -->
+            <div class="bg-white rounded-lg shadow-sm p-6">
+                <h2 class="text-xl font-semibold mb-2">Key Differentiators (optional)</h2>
+                <p class="text-gray-600 mb-4">What makes you different from competitors? One per line.</p>
+
+                <textarea id="key_differentiators" rows="3"
+                    class="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 font-mono text-sm"
+                    placeholder="AI-powered fall detection with 99% accuracy
+24/7 clinical support team
+Reduces ER visits by 40%"></textarea>
+            </div>
+
+            <!-- Submit Buttons -->
+            <div class="flex justify-between items-center pt-4">
+                <a href="/settings.html" class="text-gray-600 hover:text-gray-900">
+                    &larr; Back to Settings
+                </a>
+                <button type="submit" id="submit-btn"
+                    class="px-8 py-3 bg-indigo-600 text-white rounded-lg font-semibold hover:bg-indigo-700 transition disabled:opacity-50 disabled:cursor-not-allowed">
+                    Save Brand Voice
+                </button>
+            </div>
+        </form>
+
+        <!-- Success Message -->
+        <div id="success-message" class="hidden mt-4 p-4 bg-green-50 border border-green-200 rounded-lg text-green-700">
+            Brand voice saved successfully! Your generated content will now follow these guidelines.
+        </div>
+
+        <!-- Error Message -->
+        <div id="error-message" class="hidden mt-4 p-4 bg-red-50 border border-red-200 rounded-lg text-red-600"></div>
+    </div>
+
+    <script>
+        // Require authentication
+        if (!Auth.requireAuth()) {
+            // Will redirect to login
+        }
+
+        // Check if this is onboarding flow
+        const urlParams = new URLSearchParams(window.location.search);
+        const isOnboarding = urlParams.get('onboarding') === 'true';
+
+        if (isOnboarding) {
+            document.getElementById('skip-banner').classList.remove('hidden');
+        }
+
+        function skipSetup() {
+            window.location.href = '/upload.html';
+        }
+
+        // Load existing brand voice data
+        async function loadBrandVoice() {
+            try {
+                const response = await Auth.fetchWithAuth('/api/brand-voice/form-data');
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.detail || 'Failed to load brand voice');
+                }
+
+                // Populate form fields
+                document.getElementById('company_name').value = data.company_name || '';
+                document.getElementById('industry').value = data.industry || '';
+                document.getElementById('mission_statement').value = data.mission_statement || '';
+                document.getElementById('tone_linkedin').value = data.tone_linkedin || '';
+                document.getElementById('tone_blog').value = data.tone_blog || '';
+                document.getElementById('tone_email').value = data.tone_email || '';
+                document.getElementById('core_principles').value = data.core_principles || '';
+                document.getElementById('mission_phrases').value = data.mission_phrases || '';
+                document.getElementById('red_flags').value = data.red_flags || '';
+                document.getElementById('linkedin_structure').value = data.linkedin_structure || '';
+                document.getElementById('paragraph_length').value = data.paragraph_length || '2-4 sentences';
+                document.getElementById('contractions').value = data.contractions || 'Moderate';
+                document.getElementById('competitor_names').value = data.competitor_names || '';
+                document.getElementById('key_differentiators').value = data.key_differentiators || '';
+
+            } catch (err) {
+                console.error('Failed to load brand voice:', err);
+                // Not critical - just use defaults
+            }
+        }
+
+        // Handle form submission
+        document.getElementById('brand-voice-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const submitBtn = document.getElementById('submit-btn');
+            const errorDiv = document.getElementById('error-message');
+            const successDiv = document.getElementById('success-message');
+
+            errorDiv.classList.add('hidden');
+            successDiv.classList.add('hidden');
+
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Saving...';
+
+            try {
+                const formData = {
+                    company_name: document.getElementById('company_name').value.trim(),
+                    industry: document.getElementById('industry').value.trim(),
+                    mission_statement: document.getElementById('mission_statement').value.trim() || null,
+                    tone_linkedin: document.getElementById('tone_linkedin').value.trim(),
+                    tone_blog: document.getElementById('tone_blog').value.trim(),
+                    tone_email: document.getElementById('tone_email').value.trim(),
+                    core_principles: document.getElementById('core_principles').value.trim(),
+                    mission_phrases: document.getElementById('mission_phrases').value.trim(),
+                    red_flags: document.getElementById('red_flags').value.trim(),
+                    linkedin_structure: document.getElementById('linkedin_structure').value.trim(),
+                    paragraph_length: document.getElementById('paragraph_length').value,
+                    contractions: document.getElementById('contractions').value,
+                    competitor_names: document.getElementById('competitor_names').value.trim(),
+                    key_differentiators: document.getElementById('key_differentiators').value.trim(),
+                };
+
+                const response = await Auth.fetchWithAuth('/api/brand-voice', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(formData),
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.detail || 'Failed to save brand voice');
+                }
+
+                successDiv.classList.remove('hidden');
+
+                // If onboarding, redirect to upload after a moment
+                if (isOnboarding) {
+                    setTimeout(() => {
+                        window.location.href = '/upload.html';
+                    }, 1500);
+                }
+
+            } catch (err) {
+                errorDiv.textContent = err.message;
+                errorDiv.classList.remove('hidden');
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Save Brand Voice';
+            }
+        });
+
+        // Load on page load
+        loadBrandVoice();
+    </script>
+</body>
+</html>

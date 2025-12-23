@@ -173,8 +173,8 @@
                     localStorage.setItem('auth_token', data.access_token);
                     localStorage.setItem('user', JSON.stringify(data.user));
 
-                    // Redirect to upload page
-                    window.location.href = '/upload.html';
+                    // Redirect to brand voice setup (onboarding)
+                    window.location.href = '/brand-voice.html?onboarding=true';
                 } else {
                     throw new Error(data.detail || 'Registration failed');
                 }
