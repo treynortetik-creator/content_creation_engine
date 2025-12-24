@@ -13,12 +13,30 @@ from app.services import settings_manager
 settings = get_settings()
 
 
+class GeminiAPIKeyMissingError(Exception):
+    """Raised when Gemini API key is not configured."""
+
+    def __init__(self):
+        super().__init__(
+            "GEMINI_API_KEY is not configured. "
+            "Video and audio transcription requires a Google AI Studio API key. "
+            "Get one at: https://aistudio.google.com/ and add it to your .env file. "
+            "Text files (.txt, .md) can still be processed without this key."
+        )
+
+
 def init_gemini():
     """Initialize Gemini API client."""
     api_key = settings.gemini_api_key or os.getenv("GEMINI_API_KEY")
     if not api_key:
-        raise ValueError("GEMINI_API_KEY not configured")
+        raise GeminiAPIKeyMissingError()
     genai.configure(api_key=api_key)
+
+
+def is_gemini_available() -> bool:
+    """Check if Gemini API is configured and available."""
+    api_key = settings.gemini_api_key or os.getenv("GEMINI_API_KEY")
+    return bool(api_key)
 
 
 async def _call_gemini_transcribe(model, content, prompt) -> tuple:
