@@ -1,8 +1,20 @@
 """Application configuration settings."""
 import os
 from pathlib import Path
+from pydantic import field_validator
 from pydantic_settings import BaseSettings
 from functools import lru_cache
+
+
+class MissingSecretError(RuntimeError):
+    """Raised when a required security-sensitive setting has no value."""
+
+    def __init__(self, env_var: str):
+        super().__init__(
+            f"Environment variable '{env_var}' is required but not set. "
+            f"Set it in your .env file (see .env.example) before starting the app. "
+            f"There is no insecure fallback for this value."
+        )
 
 
 class Settings(BaseSettings):
@@ -22,12 +34,12 @@ class Settings(BaseSettings):
 
     # Application
     debug: bool = True
-    secret_key: str = "change-this-in-production"
+    secret_key: str = ""
     upload_max_size_mb: int = 100
 
     # Admin
-    admin_username: str = "admin"
-    admin_password: str = "admin"
+    admin_username: str = ""
+    admin_password: str = ""
 
     # Paths
     base_dir: Path = Path(__file__).parent.parent
@@ -36,6 +48,27 @@ class Settings(BaseSettings):
     prompts_dir: Path = data_dir / "prompts"
     clients_dir: Path = data_dir / "clients"
     database_dir: Path = base_dir / "database"
+
+    @field_validator("secret_key")
+    @classmethod
+    def _require_secret_key(cls, value: str) -> str:
+        if not value:
+            raise MissingSecretError("SECRET_KEY")
+        return value
+
+    @field_validator("admin_username")
+    @classmethod
+    def _require_admin_username(cls, value: str) -> str:
+        if not value:
+            raise MissingSecretError("ADMIN_USERNAME")
+        return value
+
+    @field_validator("admin_password")
+    @classmethod
+    def _require_admin_password(cls, value: str) -> str:
+        if not value:
+            raise MissingSecretError("ADMIN_PASSWORD")
+        return value
 
     class Config:
         env_file = ".env"

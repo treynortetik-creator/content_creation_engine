@@ -8,6 +8,9 @@ from httpx import AsyncClient, ASGITransport
 # Set test environment
 os.environ["GEMINI_API_KEY"] = "test-key"
 os.environ["ANTHROPIC_API_KEY"] = "test-key"
+os.environ.setdefault("SECRET_KEY", "test-secret-key")
+os.environ.setdefault("ADMIN_USERNAME", "test-admin")
+os.environ.setdefault("ADMIN_PASSWORD", "test-admin-password")
 
 from app.main import app
 from app.database import init_db, DATABASE_PATH
